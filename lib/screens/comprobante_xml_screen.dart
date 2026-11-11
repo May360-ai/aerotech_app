@@ -24,7 +24,7 @@ class ComprobanteXmlScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Copiar XML al portapapeles',
+            tooltip: 'Copiar XML',
             onPressed: () {
               Clipboard.setData(ClipboardData(text: xmlContent));
               ScaffoldMessenger.of(context).showSnackBar(
@@ -75,7 +75,7 @@ class ComprobanteXmlScreen extends StatelessWidget {
           ),
           Expanded(
             child: Container(
-              color: const Color(0xFF1E1E1E), // Estilo editor de código
+              color: const Color(0xFF1E1E1E),
               padding: const EdgeInsets.all(16),
               width: double.infinity,
               child: SingleChildScrollView(
@@ -84,7 +84,7 @@ class ComprobanteXmlScreen extends StatelessWidget {
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 13,
-                    color: Color(0xFF9CDCFE), // Sintaxis legible
+                    color: Color(0xFF9CDCFE),
                     height: 1.4,
                   ),
                 ),

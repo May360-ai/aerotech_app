@@ -15,7 +15,6 @@ class Reserva {
     required this.estado,
   });
 
-  // Función utilitaria para parsear numéricamente strings o doubles de forma segura
   static double _parseMoney(dynamic value) {
     if (value == null) return 0.0;
     if (value is num) return value.toDouble();
@@ -24,9 +23,10 @@ class Reserva {
   }
 
   factory Reserva.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'] ?? json['reserva_id'];
     return Reserva(
-      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
-      codigoReserva: json['codigo_reserva']?.toString() ?? '',
+      id: rawId is int ? rawId : int.tryParse(rawId.toString()) ?? 0,
+      codigoReserva: json['codigo_reserva']?.toString() ?? 'TICK-GEN',
       subtotal: _parseMoney(json['subtotal']),
       iva: _parseMoney(json['iva']),
       total: _parseMoney(json['total']),

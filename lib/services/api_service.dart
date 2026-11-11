@@ -5,8 +5,15 @@ import '../models/usuario_model.dart';
 import '../models/vuelo_model.dart';
 import '../models/reserva_model.dart';
 
+class ConcurrencyException implements Exception {
+  final String message;
+  ConcurrencyException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
-  // Instancia única (Singleton)
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
@@ -23,7 +30,6 @@ class ApiService {
     _usuarioActual = null;
   }
 
-  // POST /api/usuarios/registro
   Future<Usuario> registrarUsuario({
     required String nombre,
     required String correo,
@@ -50,7 +56,6 @@ class ApiService {
     }
   }
 
-  // POST /api/auth/login
   Future<bool> login(String correo, String password) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/auth/login');
     final response = await http.post(
@@ -71,7 +76,6 @@ class ApiService {
     }
   }
 
-  // GET /api/vuelos (Público)
   Future<List<Vuelo>> obtenerVuelos() async {
     final url = Uri.parse('${ApiConfig.baseUrl}/vuelos');
     final response = await http.get(url);
@@ -84,7 +88,6 @@ class ApiService {
     }
   }
 
-  // POST /api/reservas (Requiere Token)
   Future<Reserva> crearReserva({
     required int vueloId,
     required int cantidad,
@@ -105,14 +108,18 @@ class ApiService {
     );
 
     final data = jsonDecode(utf8.decode(response.bodyBytes));
+
     if (response.statusCode == 201 || response.statusCode == 200) {
       return Reserva.fromJson(data['reserva'] ?? data);
+    } else if (response.statusCode == 409) {
+      throw ConcurrencyException(
+        data['mensaje'] ?? 'Los cupos de este vuelo han cambiado. Por favor actualice el catálogo.',
+      );
     } else {
-      throw Exception(data['mensaje'] ?? 'Error al procesar la reserva');
+      throw Exception(data['mensaje'] ?? 'Error al procesar la reserva (${response.statusCode})');
     }
   }
 
-  // GET /api/reservas/{id}/comprobante-xml (Interoperabilidad SOA XML)
   Future<String> obtenerComprobanteXml(int reservaId) async {
     if (!isAuthenticated) throw Exception('No autenticado.');
 

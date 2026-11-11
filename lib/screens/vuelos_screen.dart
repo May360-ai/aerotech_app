@@ -73,7 +73,7 @@ class _VuelosScreenState extends State<VuelosScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Pasajero: ${usuario.nombre}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Cédula: ${usuario.cedulaRuc}', style: const TextStyle(fontSize: 12)),
+                        Text('Cédula/RUC: ${usuario.cedulaRuc}', style: const TextStyle(fontSize: 12)),
                       ],
                     ),
                   ),

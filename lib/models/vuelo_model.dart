@@ -19,16 +19,25 @@ class Vuelo {
     required this.asientosDisponibles,
   });
 
+  static double _parseMoney(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
   factory Vuelo.fromJson(Map<String, dynamic> json) {
     return Vuelo(
-      id: json['id'] as int,
-      origen: json['origen'] as String,
-      destino: json['destino'] as String,
-      fecha: json['fecha'] as String,
-      horaSalida: json['hora_salida'] as String,
-      horaLlegada: json['hora_llegada'] as String,
-      precio: (json['precio'] as num).toDouble(),
-      asientosDisponibles: json['asientos_disponibles'] as int,
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      origen: json['origen']?.toString() ?? '',
+      destino: json['destino']?.toString() ?? '',
+      fecha: json['fecha']?.toString() ?? '',
+      horaSalida: json['hora_salida']?.toString() ?? '',
+      horaLlegada: json['hora_llegada']?.toString() ?? '',
+      precio: _parseMoney(json['precio']),
+      asientosDisponibles: json['asientos_disponibles'] is int
+          ? json['asientos_disponibles']
+          : int.tryParse(json['asientos_disponibles'].toString()) ?? 0,
     );
   }
 }

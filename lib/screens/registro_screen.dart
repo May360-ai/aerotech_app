@@ -17,14 +17,13 @@ class _RegistroScreenState extends State<RegistroScreen> {
   final _passwordCtrl = TextEditingController();
   bool _cargando = false;
 
-  // Algoritmo oficial de validación de Cédula Ecuatoriana (Módulo 10)
   bool _validarCedulaEcuatoriana(String cedula) {
     if (cedula.length != 10) return false;
     final int provincia = int.tryParse(cedula.substring(0, 2)) ?? 0;
     if (provincia < 1 || (provincia > 24 && provincia != 30)) return false;
 
     final int tercerDigito = int.tryParse(cedula.substring(2, 3)) ?? 9;
-    if (tercerDigito >= 6) return false; // Persona natural
+    if (tercerDigito >= 6) return false;
 
     final List<int> coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
     int suma = 0;
@@ -40,7 +39,6 @@ class _RegistroScreenState extends State<RegistroScreen> {
     return (decenaSuperior - suma) == digitoVerificador;
   }
 
-  // Validación de RUC (13 dígitos y los 10 primeros corresponden a una cédula válida)
   bool _validarCedulaORuc(String valor) {
     if (valor.length == 10) {
       return _validarCedulaEcuatoriana(valor);
@@ -67,7 +65,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Usuario registrado con éxito. Inicie sesión.'),
+          content: Text('Usuario registrado con éxito. Ya puedes iniciar sesión.'),
           backgroundColor: Colors.green,
         ),
       );
@@ -110,10 +108,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
                   ],
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'El nombre es obligatorio';
-                    if (v.trim().length < 3) return 'Mínimo 3 letras';
-                    if (!RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$').hasMatch(v.trim())) {
-                      return 'Solo se permiten letras y espacios (sin números)';
-                    }
+                    if (v.trim().length < 3) return 'Mínimo 3 caracteres';
                     return null;
                   },
                 ),
@@ -150,7 +145,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'El correo es obligatorio';
                     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                    if (!emailRegex.hasMatch(v.trim())) return 'Formato de correo inválido';
+                    if (!emailRegex.hasMatch(v.trim())) return 'Formato de correo no válido';
                     return null;
                   },
                 ),
@@ -163,7 +158,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
                     prefixIcon: Icon(Icons.lock_outline),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => v!.length < 3 ? 'Mínimo 3 caracteres' : null,
+                  validator: (v) => (v == null || v.length < 3) ? 'Mínimo 3 caracteres' : null,
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
@@ -176,6 +171,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
                         )
                       : const Icon(Icons.person_add_alt_1),
                   label: Text(_cargando ? 'Validando datos...' : 'Crear Cuenta'),
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
                 ),
               ],
             ),

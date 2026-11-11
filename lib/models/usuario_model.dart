@@ -13,10 +13,10 @@ class Usuario {
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
-      id: json['id'] as int? ?? 0,
-      nombre: json['nombre'] as String? ?? '',
-      correo: json['correo'] as String? ?? '',
-      cedulaRuc: json['cedula_ruc'] as String? ?? '',
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      nombre: json['nombre']?.toString() ?? '',
+      correo: json['correo']?.toString() ?? '',
+      cedulaRuc: json['cedula_ruc']?.toString() ?? '',
     );
   }
 

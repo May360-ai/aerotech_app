@@ -17,20 +17,42 @@ class _ReservaScreenState extends State<ReservaScreen> {
   bool _procesando = false;
 
   double get subtotal => widget.vuelo.precio * _cantidadAsientos;
-  double get iva => subtotal * 0.15; // 15% IVA vigente
+  double get iva => subtotal * 0.15; 
   double get total => subtotal + iva;
 
+  void _mostrarDialogoConcurrencia(String mensaje) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 48),
+        title: const Text('Conflicto de Concurrencia (409)'),
+        content: Text(
+          '$mensaje\n\nLos cupos han cambiado simultáneamente por otra reserva. Regresando al catálogo...',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context, true); 
+            },
+            child: const Text('Actualizar Catálogo'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _confirmarReserva() async {
+    if (_procesando) return;
     setState(() => _procesando = true);
+
     try {
       final reserva = await _api.crearReserva(
         vueloId: widget.vuelo.id,
         cantidad: _cantidadAsientos,
       );
 
-      if (!mounted) return;
-
-      // Descargamos de inmediato el XML para evidenciar el contrato SOA
       final rawXml = await _api.obtenerComprobanteXml(reserva.id);
 
       if (!mounted) return;
@@ -43,14 +65,22 @@ class _ReservaScreenState extends State<ReservaScreen> {
           ),
         ),
       );
+    } on ConcurrencyException catch (e) {
+      if (!mounted) return;
+      _mostrarDialogoConcurrencia(e.message);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      final errorMsg = e.toString().replaceAll('Exception: ', '');
+
+      if (errorMsg.toLowerCase().contains('asientos') ||
+          errorMsg.toLowerCase().contains('cupos') ||
+          errorMsg.toLowerCase().contains('concurrencia')) {
+        _mostrarDialogoConcurrencia(errorMsg);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMsg), backgroundColor: Colors.redAccent),
+        );
+      }
     } finally {
       if (mounted) setState(() => _procesando = false);
     }

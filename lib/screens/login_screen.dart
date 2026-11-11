@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   Text(
-                    'Sistema Distribuido de Reservas',
+                    'Sistema Distribuido de Reservas - UTA',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
                   ),
