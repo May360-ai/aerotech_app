@@ -88,9 +88,22 @@ class ApiService {
     }
   }
 
+  Future<List<String>> obtenerAsientosOcupados(int vueloId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/vuelos/$vueloId/asientos-ocupados');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      final List<dynamic> lista = data['asientos_ocupados'] ?? [];
+      return lista.map((e) => e.toString()).toList();
+    }
+    return [];
+  }
+
   Future<Reserva> crearReserva({
     required int vueloId,
     required int cantidad,
+    List<String> asientos = const [],
   }) async {
     if (!isAuthenticated) throw Exception('Sesión expirada o no autenticado.');
 
@@ -104,6 +117,7 @@ class ApiService {
       body: jsonEncode({
         'vuelo_id': vueloId,
         'cantidad': cantidad,
+        'asientos': asientos,
       }),
     );
 
@@ -113,10 +127,29 @@ class ApiService {
       return Reserva.fromJson(data['reserva'] ?? data);
     } else if (response.statusCode == 409) {
       throw ConcurrencyException(
-        data['mensaje'] ?? 'Los cupos de este vuelo han cambiado. Por favor actualice el catálogo.',
+        data['mensaje'] ?? 'Uno o más asientos acaban de ser ocupados.',
       );
     } else {
       throw Exception(data['mensaje'] ?? 'Error al procesar la reserva (${response.statusCode})');
+    }
+  }
+
+  Future<List<Reserva>> obtenerMisReservas() async {
+    if (!isAuthenticated) throw Exception('Sesión expirada o no autenticado.');
+
+    final url = Uri.parse('${ApiConfig.baseUrl}/reservas/mis-reservas');
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $_jwtToken',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((json) => Reserva.fromJson(json)).toList();
+    } else {
+      throw Exception('Error al cargar historial de reservas (${response.statusCode})');
     }
   }
 

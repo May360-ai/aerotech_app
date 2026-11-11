@@ -3,6 +3,7 @@ import '../models/vuelo_model.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'reserva_screen.dart';
+import 'mis_reservas_screen.dart';
 
 class VuelosScreen extends StatefulWidget {
   const VuelosScreen({super.key});
@@ -43,6 +44,16 @@ class _VuelosScreenState extends State<VuelosScreen> {
       appBar: AppBar(
         title: const Text('Vuelos Disponibles'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'Mis Reservas',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MisReservasScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualizar',
@@ -181,7 +192,7 @@ class _VuelosScreenState extends State<VuelosScreen> {
                                       ),
                                     ),
                                     Text(
-                                      'Cupos: ${vuelo.asientosDisponibles}',
+                                      'Cupos: ${vuelo.asientosDisponibles} / ${vuelo.asientosTotales}',
                                       style: TextStyle(
                                         color: vuelo.asientosDisponibles > 0 ? Colors.green : Colors.red,
                                         fontWeight: FontWeight.w600,

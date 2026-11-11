@@ -14,70 +14,98 @@ class ReservaScreen extends StatefulWidget {
 
 class _ReservaScreenState extends State<ReservaScreen> {
   final ApiService _api = ApiService();
+  bool _cargandoAsientos = true;
   bool _procesando = false;
 
   final Set<String> _asientosSeleccionados = {};
   final Set<String> _asientosOcupados = {};
-  final List<String> _columnas = ['A', 'B', 'C', 'D'];
-  late int _totalFilas;
+
+  // Configuración dinámica de la aeronave según capacidad
+  late final List<String> _colsIzquierda;
+  late final List<String> _colsDerecha;
+  late final int _columnasPorFila;
+  late final int _totalFilas;
+  late final double _anchoFuselaje;
+  late final String _nombreTipoAvion;
 
   int get _cantidadAsientos => _asientosSeleccionados.length;
   double get subtotal => widget.vuelo.precio * _cantidadAsientos;
-  double get iva => subtotal * 0.15; 
+  double get iva => subtotal * 0.15;
   double get total => subtotal + iva;
 
   @override
   void initState() {
     super.initState();
-    _generarMapaDeAsientos();
+    _configurarDistribucionAeronave();
+    _cargarAsientosDesdeServidor();
   }
 
-  void _generarMapaDeAsientos() {
-    final capacidadAproximada = max(widget.vuelo.asientosDisponibles + 8, 24);
-    _totalFilas = (capacidadAproximada / _columnas.length).ceil();
+  /// Determina la distribución física de la cabina según asientosTotales
+  void _configurarDistribucionAeronave() {
+    final capacidad = widget.vuelo.asientosTotales;
 
-    final List<String> todosLosAsientos = [];
-    for (int fila = 1; fila <= _totalFilas; fila++) {
-      for (String col in _columnas) {
-        todosLosAsientos.add('$fila$col');
-      }
+    if (capacidad <= 20) {
+      // Avioneta pequeña / Regional corto (ej. Twin Otter / ATR 42)
+      _colsIzquierda = ['A'];
+      _colsDerecha = ['B', 'C'];
+      _anchoFuselaje = 270;
+      _nombreTipoAvion = 'Avioneta Regional (1x2)';
+    } else if (capacidad <= 70) {
+      // Jet Regional estándar (ej. Embraer 190 / ATR 72) -> Default 40
+      _colsIzquierda = ['A', 'B'];
+      _colsDerecha = ['C', 'D'];
+      _anchoFuselaje = 330;
+      _nombreTipoAvion = 'Jet Regional (2x2)';
+    } else {
+      // Aeronave Comercial Mayor (ej. Airbus A320 / Boeing 737)
+      _colsIzquierda = ['A', 'B', 'C'];
+      _colsDerecha = ['D', 'E', 'F'];
+      _anchoFuselaje = 410;
+      _nombreTipoAvion = 'Comercial Pasajeros (3x3)';
     }
 
-    final totalAsientos = todosLosAsientos.length;
-    final cuposDisponibles = min(widget.vuelo.asientosDisponibles, totalAsientos);
-    final cantidadOcupados = totalAsientos - cuposDisponibles;
+    _columnasPorFila = _colsIzquierda.length + _colsDerecha.length;
+    _totalFilas = (capacidad / _columnasPorFila).ceil();
+  }
 
-    final random = Random(widget.vuelo.id);
-    todosLosAsientos.shuffle(random);
+  /// Verifica si el asiento existe dentro del límite exacto de capacidad
+  bool _asientoExiste(int fila, String col) {
+    final todasLasColumnas = [..._colsIzquierda, ..._colsDerecha];
+    final colIndex = todasLasColumnas.indexOf(col);
+    final indiceGlobal = (fila - 1) * _columnasPorFila + colIndex;
+    return indiceGlobal < widget.vuelo.asientosTotales;
+  }
 
-    for (int i = 0; i < cantidadOcupados; i++) {
-      _asientosOcupados.add(todosLosAsientos[i]);
-    }
-
-    final primerLibre = todosLosAsientos.firstWhere(
-      (asiento) => !_asientosOcupados.contains(asiento),
-      orElse: () => '',
-    );
-    if (primerLibre.isNotEmpty) {
-      _asientosSeleccionados.add(primerLibre);
+  Future<void> _cargarAsientosDesdeServidor() async {
+    try {
+      final ocupadosServidor = await _api.obtenerAsientosOcupados(widget.vuelo.id);
+      if (!mounted) return;
+      setState(() {
+        _asientosOcupados.clear();
+        _asientosOcupados.addAll(ocupadosServidor);
+        _cargandoAsientos = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cargandoAsientos = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Aviso al cargar ocupación: ${e.toString()}')),
+      );
     }
   }
 
-  void _toggleAsiento(String codigoAsiento) {
-    if (_asientosOcupados.contains(codigoAsiento)) return;
+  void _toggleAsiento(String codigo) {
+    if (_asientosOcupados.contains(codigo)) return;
 
     setState(() {
-      if (_asientosSeleccionados.contains(codigoAsiento)) {
-        _asientosSeleccionados.remove(codigoAsiento);
+      if (_asientosSeleccionados.contains(codigo)) {
+        _asientosSeleccionados.remove(codigo);
       } else {
         if (_asientosSeleccionados.length < widget.vuelo.asientosDisponibles) {
-          _asientosSeleccionados.add(codigoAsiento);
+          _asientosSeleccionados.add(codigo);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Límite alcanzado: solo hay ${widget.vuelo.asientosDisponibles} cupos.'),
-              duration: const Duration(seconds: 2),
-            ),
+            SnackBar(content: Text('Solo quedan ${widget.vuelo.asientosDisponibles} cupos libres.')),
           );
         }
       }
@@ -90,17 +118,15 @@ class _ReservaScreenState extends State<ReservaScreen> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 48),
-        title: const Text('Conflicto de Concurrencia (409)'),
-        content: Text(
-          '$mensaje\n\nLos cupos han cambiado simultáneamente por otra reserva. Regresando al catálogo...',
-        ),
+        title: const Text('Conflicto de Asiento (409)'),
+        content: Text('$mensaje\n\nEl mapa se actualizará con los asientos disponibles.'),
         actions: [
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.pop(context, true); 
+              Navigator.pop(context, true);
             },
-            child: const Text('Actualizar Catálogo'),
+            child: const Text('Entendido'),
           ),
         ],
       ),
@@ -110,21 +136,19 @@ class _ReservaScreenState extends State<ReservaScreen> {
   Future<void> _confirmarReserva() async {
     if (_cantidadAsientos == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debe seleccionar al menos un asiento.'),
-          backgroundColor: Colors.orange,
-        ),
+        const SnackBar(content: Text('Seleccione al menos un asiento.'), backgroundColor: Colors.orange),
       );
       return;
     }
 
-    if (_procesando) return;
     setState(() => _procesando = true);
+    final listaAsientos = _asientosSeleccionados.toList()..sort();
 
     try {
       final reserva = await _api.crearReserva(
         vueloId: widget.vuelo.id,
         cantidad: _cantidadAsientos,
+        asientos: listaAsientos,
       );
 
       final rawXml = await _api.obtenerComprobanteXml(reserva.id);
@@ -136,7 +160,8 @@ class _ReservaScreenState extends State<ReservaScreen> {
           builder: (_) => ComprobanteXmlScreen(
             reserva: reserva,
             xmlContent: rawXml,
-            asientosSeleccionados: _asientosSeleccionados.toList()..sort(),
+            asientosSeleccionados: listaAsientos,
+            vuelo: widget.vuelo,
           ),
         ),
       );
@@ -145,17 +170,9 @@ class _ReservaScreenState extends State<ReservaScreen> {
       _mostrarDialogoConcurrencia(e.message);
     } catch (e) {
       if (!mounted) return;
-      final errorMsg = e.toString().replaceAll('Exception: ', '');
-
-      if (errorMsg.toLowerCase().contains('asientos') ||
-          errorMsg.toLowerCase().contains('cupos') ||
-          errorMsg.toLowerCase().contains('concurrencia')) {
-        _mostrarDialogoConcurrencia(errorMsg);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMsg), backgroundColor: Colors.redAccent),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.redAccent),
+      );
     } finally {
       if (mounted) setState(() => _procesando = false);
     }
@@ -164,183 +181,214 @@ class _ReservaScreenState extends State<ReservaScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final usuario = _api.usuarioActual;
-    final listaAsientosOrdenados = _asientosSeleccionados.toList()..sort();
+    final listaOrdenada = _asientosSeleccionados.toList()..sort();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Selección de Asientos')),
-      body: Column(
-        children: [
-          Container(
-            color: theme.colorScheme.primaryContainer.withOpacity(0.4),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      appBar: AppBar(
+        title: const Text('Mapa de Cabina Adaptativo'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refrescar Asientos',
+            onPressed: () {
+              setState(() => _cargandoAsientos = true);
+              _cargarAsientosDesdeServidor();
+            },
+          )
+        ],
+      ),
+      body: _cargandoAsientos
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Consultando ocupación en Supabase...'),
+                ],
+              ),
+            )
+          : Column(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${widget.vuelo.origen} ➔ ${widget.vuelo.destino}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    Text('${widget.vuelo.fecha} | Salida: ${widget.vuelo.horaSalida}'),
-                  ],
-                ),
-                Chip(
-                  label: Text('Libres: ${widget.vuelo.asientosDisponibles}'),
-                  backgroundColor: Colors.white,
-                ),
-              ],
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildItemLeyenda(Colors.white, Colors.grey.shade400, 'Disponible'),
-                const SizedBox(width: 16),
-                _buildItemLeyenda(theme.colorScheme.primary, theme.colorScheme.primary, 'Seleccionado', textoColor: Colors.white),
-                const SizedBox(width: 16),
-                _buildItemLeyenda(Colors.grey.shade300, Colors.grey.shade400, 'Ocupado', textoColor: Colors.grey.shade600),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: Container(
-                  width: 320,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(100), 
-                      bottom: Radius.circular(20),
-                    ),
-                    border: Border.all(color: Colors.grey.shade300, width: 2),
-                  ),
-                  child: Column(
+                // 1. Cabecera Informativa con Tipo de Aeronave
+                Container(
+                  color: theme.colorScheme.primaryContainer.withOpacity(0.35),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.flight, size: 36, color: theme.colorScheme.primary),
-                      const SizedBox(height: 4),
-                      Text(
-                        'FRENTE / CABINA',
-                        style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${widget.vuelo.origen} ➔ ${widget.vuelo.destino}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(_nombreTipoAvion,
+                              style: TextStyle(fontSize: 12, color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
+                        ],
                       ),
-                      const Divider(height: 24, thickness: 1.5),
-
-                      for (int fila = 1; fila <= _totalFilas; fila++)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildWidgetAsiento('$fila A'),
-                              const SizedBox(width: 6),
-                              _buildWidgetAsiento('$fila B'),
-                              
-                              Container(
-                                width: 36,
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '$fila',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Colors.grey.shade500,
-                                  ),
-                                ),
-                              ),
-
-                              _buildWidgetAsiento('$fila C'),
-                              const SizedBox(width: 6),
-                              _buildWidgetAsiento('$fila D'),
-                            ],
-                          ),
+                      Chip(
+                        label: Text(
+                          'Libres: ${widget.vuelo.asientosDisponibles} / ${widget.vuelo.asientosTotales}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
+                        backgroundColor: Colors.white,
+                      ),
                     ],
                   ),
                 ),
-              ),
-            ),
-          ),
 
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  offset: const Offset(0, -3),
-                  blurRadius: 10,
+                // 2. Leyenda
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildItemLeyenda(Colors.white, Colors.grey.shade400, 'Libre'),
+                      const SizedBox(width: 16),
+                      _buildItemLeyenda(theme.colorScheme.primary, theme.colorScheme.primary, 'Tu Selección', textoColor: Colors.white),
+                      const SizedBox(width: 16),
+                      _buildItemLeyenda(Colors.grey.shade300, Colors.grey.shade400, 'Ocupado', textoColor: Colors.grey.shade600),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Asientos (${_asientosSeleccionados.length}):',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          listaAsientosOrdenados.isEmpty
-                              ? 'Ninguno seleccionado'
-                              : listaAsientosOrdenados.join(', '),
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: listaAsientosOrdenados.isEmpty ? Colors.red : theme.colorScheme.primary,
-                            fontWeight: FontWeight.w600,
+
+                // 3. Fuselaje Adaptativo (permite scroll horizontal si es avión de 6 columnas en pantallas pequeñas)
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Container(
+                          width: _anchoFuselaje,
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(100),
+                              bottom: Radius.circular(24),
+                            ),
+                            border: Border.all(color: Colors.grey.shade300, width: 2),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.flight, size: 36, color: theme.colorScheme.primary),
+                              const SizedBox(height: 4),
+                              Text(
+                                'CABINA (${widget.vuelo.asientosTotales} ASIENTOS)',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  letterSpacing: 2,
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Divider(height: 24, thickness: 1.5),
+
+                              // Renderizado fila por fila
+                              for (int fila = 1; fila <= _totalFilas; fila++)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      // Bloque de asientos Izquierda
+                                      for (final col in _colsIzquierda) ...[
+                                        _asientoExiste(fila, col)
+                                            ? _buildWidgetAsiento('$fila$col')
+                                            : const SizedBox(width: 44, height: 44),
+                                        const SizedBox(width: 6),
+                                      ],
+
+                                      // Pasillo Central con número de fila
+                                      Container(
+                                        width: 32,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '$fila',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: Colors.grey.shade500,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+
+                                      // Bloque de asientos Derecha
+                                      for (final col in _colsDerecha) ...[
+                                        _asientoExiste(fila, col)
+                                            ? _buildWidgetAsiento('$fila$col')
+                                            : const SizedBox(width: 44, height: 44),
+                                        if (col != _colsDerecha.last) const SizedBox(width: 6),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('Total (+15% IVA)', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                        Text(
-                          '\$${total.toStringAsFixed(2)}',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: (_cantidadAsientos > 0 && !_procesando) ? _confirmarReserva : null,
-                  icon: _procesando
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.check_circle_outline),
-                  label: Text(_procesando
-                      ? 'Procesando Transacción...'
-                      : 'Confirmar ${_cantidadAsientos} Asiento(s) y Emitir XML'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+
+                // 4. Panel Inferior de Confirmación
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.06), offset: const Offset(0, -3), blurRadius: 10),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Asientos (${_asientosSeleccionados.length}):', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(
+                                listaOrdenada.isEmpty ? 'Ninguno' : listaOrdenada.join(', '),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: listaOrdenada.isEmpty ? Colors.red : theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text('Total (+15% IVA)', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                              Text(
+                                '\$${total.toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: (_cantidadAsientos > 0 && !_procesando) ? _confirmarReserva : null,
+                        icon: _procesando
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.airplane_ticket),
+                        label: Text(_procesando ? 'Procesando en Supabase...' : 'Confirmar Asiento(s) y Emitir XML'),
+                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -350,11 +398,7 @@ class _ReservaScreenState extends State<ReservaScreen> {
         Container(
           width: 18,
           height: 18,
-          decoration: BoxDecoration(
-            color: fondo,
-            border: Border.all(color: borde),
-            borderRadius: BorderRadius.circular(4),
-          ),
+          decoration: BoxDecoration(color: fondo, border: Border.all(color: borde), borderRadius: BorderRadius.circular(4)),
         ),
         const SizedBox(width: 6),
         Text(texto, style: const TextStyle(fontSize: 12)),
@@ -395,29 +439,19 @@ class _ReservaScreenState extends State<ReservaScreen> {
         decoration: BoxDecoration(
           color: colorFondo,
           border: Border.all(color: colorBorde, width: estaSeleccionado ? 2 : 1),
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(8),
-            bottom: Radius.circular(4),
-          ),
-          boxShadow: estaSeleccionado
-              ? [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.35), blurRadius: 4, offset: const Offset(0, 2))]
-              : null,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(8), bottom: Radius.circular(4)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               estaOcupado ? Icons.close : (estaSeleccionado ? Icons.check : Icons.airline_seat_recline_normal),
-              size: 16,
+              size: 15,
               color: colorTexto,
             ),
             Text(
-              codigo.split(' ').last,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: colorTexto,
-              ),
+              codigo.substring(codigo.length - 1),
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: colorTexto),
             ),
           ],
         ),

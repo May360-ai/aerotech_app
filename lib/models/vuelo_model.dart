@@ -7,6 +7,7 @@ class Vuelo {
   final String horaLlegada;
   final double precio;
   final int asientosDisponibles;
+  final int asientosTotales;
 
   Vuelo({
     required this.id,
@@ -17,6 +18,7 @@ class Vuelo {
     required this.horaLlegada,
     required this.precio,
     required this.asientosDisponibles,
+    this.asientosTotales = 40,
   });
 
   static double _parseMoney(dynamic value) {
@@ -38,6 +40,9 @@ class Vuelo {
       asientosDisponibles: json['asientos_disponibles'] is int
           ? json['asientos_disponibles']
           : int.tryParse(json['asientos_disponibles'].toString()) ?? 0,
+      asientosTotales: json['asientos_totales'] is int
+          ? json['asientos_totales']
+          : int.tryParse(json['asientos_totales']?.toString() ?? '') ?? 40,
     );
   }
 }

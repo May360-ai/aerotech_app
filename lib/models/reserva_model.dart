@@ -5,6 +5,12 @@ class Reserva {
   final double iva;
   final double total;
   final String estado;
+  final String? origen;
+  final String? destino;
+  final String? fecha;
+  final String? horaSalida;
+  final String? asientos;
+  final String? fechaReserva;
 
   Reserva({
     required this.id,
@@ -13,6 +19,12 @@ class Reserva {
     required this.iva,
     required this.total,
     required this.estado,
+    this.origen,
+    this.destino,
+    this.fecha,
+    this.horaSalida,
+    this.asientos,
+    this.fechaReserva,
   });
 
   static double _parseMoney(dynamic value) {
@@ -31,6 +43,12 @@ class Reserva {
       iva: _parseMoney(json['iva']),
       total: _parseMoney(json['total']),
       estado: json['estado']?.toString() ?? 'confirmada',
+      origen: json['origen']?.toString(),
+      destino: json['destino']?.toString(),
+      fecha: json['fecha']?.toString(),
+      horaSalida: json['hora_salida']?.toString(),
+      asientos: json['asientos']?.toString(),
+      fechaReserva: json['fecha_reserva']?.toString(),
     );
   }
 }
