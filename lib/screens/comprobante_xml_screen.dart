@@ -5,11 +5,13 @@ import '../models/reserva_model.dart';
 class ComprobanteXmlScreen extends StatelessWidget {
   final Reserva reserva;
   final String xmlContent;
+  final List<String> asientosSeleccionados;
 
   const ComprobanteXmlScreen({
     super.key,
     required this.reserva,
     required this.xmlContent,
+    this.asientosSeleccionados = const [],
   });
 
   @override
@@ -41,8 +43,8 @@ class ComprobanteXmlScreen extends StatelessWidget {
             color: Colors.green.shade50,
             child: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.green, size: 36),
-                const SizedBox(width: 12),
+                const Icon(Icons.check_circle, color: Colors.green, size: 40),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,7 +53,17 @@ class ComprobanteXmlScreen extends StatelessWidget {
                         '¡Reserva #${reserva.id} Confirmada!',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
+                      const SizedBox(height: 2),
                       Text('Código: ${reserva.codigoReserva} | Total: \$${reserva.total.toStringAsFixed(2)}'),
+                      if (asientosSeleccionados.isNotEmpty)
+                        Text(
+                          'Asientos Asignados: ${asientosSeleccionados.join(", ")}',
+                          style: TextStyle(
+                            color: Colors.green.shade900,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                     ],
                   ),
                 ),
