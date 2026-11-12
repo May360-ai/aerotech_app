@@ -20,7 +20,6 @@ class _ReservaScreenState extends State<ReservaScreen> {
   final Set<String> _asientosSeleccionados = {};
   final Set<String> _asientosOcupados = {};
 
-  // Configuración dinámica de la aeronave según capacidad
   late final List<String> _colsIzquierda;
   late final List<String> _colsDerecha;
   late final int _columnasPorFila;
@@ -40,24 +39,20 @@ class _ReservaScreenState extends State<ReservaScreen> {
     _cargarAsientosDesdeServidor();
   }
 
-  /// Determina la distribución física de la cabina según asientosTotales
   void _configurarDistribucionAeronave() {
     final capacidad = widget.vuelo.asientosTotales;
 
     if (capacidad <= 20) {
-      // Avioneta pequeña / Regional corto (ej. Twin Otter / ATR 42)
       _colsIzquierda = ['A'];
       _colsDerecha = ['B', 'C'];
       _anchoFuselaje = 270;
       _nombreTipoAvion = 'Avioneta Regional (1x2)';
     } else if (capacidad <= 70) {
-      // Jet Regional estándar (ej. Embraer 190 / ATR 72) -> Default 40
       _colsIzquierda = ['A', 'B'];
       _colsDerecha = ['C', 'D'];
       _anchoFuselaje = 330;
       _nombreTipoAvion = 'Jet Regional (2x2)';
     } else {
-      // Aeronave Comercial Mayor (ej. Airbus A320 / Boeing 737)
       _colsIzquierda = ['A', 'B', 'C'];
       _colsDerecha = ['D', 'E', 'F'];
       _anchoFuselaje = 410;
@@ -68,7 +63,6 @@ class _ReservaScreenState extends State<ReservaScreen> {
     _totalFilas = (capacidad / _columnasPorFila).ceil();
   }
 
-  /// Verifica si el asiento existe dentro del límite exacto de capacidad
   bool _asientoExiste(int fila, String col) {
     final todasLasColumnas = [..._colsIzquierda, ..._colsDerecha];
     final colIndex = todasLasColumnas.indexOf(col);
@@ -210,7 +204,6 @@ class _ReservaScreenState extends State<ReservaScreen> {
             )
           : Column(
               children: [
-                // 1. Cabecera Informativa con Tipo de Aeronave
                 Container(
                   color: theme.colorScheme.primaryContainer.withOpacity(0.35),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -237,7 +230,6 @@ class _ReservaScreenState extends State<ReservaScreen> {
                   ),
                 ),
 
-                // 2. Leyenda
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
@@ -252,7 +244,6 @@ class _ReservaScreenState extends State<ReservaScreen> {
                   ),
                 ),
 
-                // 3. Fuselaje Adaptativo (permite scroll horizontal si es avión de 6 columnas en pantallas pequeñas)
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -286,14 +277,12 @@ class _ReservaScreenState extends State<ReservaScreen> {
                               ),
                               const Divider(height: 24, thickness: 1.5),
 
-                              // Renderizado fila por fila
                               for (int fila = 1; fila <= _totalFilas; fila++)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      // Bloque de asientos Izquierda
                                       for (final col in _colsIzquierda) ...[
                                         _asientoExiste(fila, col)
                                             ? _buildWidgetAsiento('$fila$col')
@@ -301,7 +290,6 @@ class _ReservaScreenState extends State<ReservaScreen> {
                                         const SizedBox(width: 6),
                                       ],
 
-                                      // Pasillo Central con número de fila
                                       Container(
                                         width: 32,
                                         alignment: Alignment.center,
@@ -316,7 +304,6 @@ class _ReservaScreenState extends State<ReservaScreen> {
                                       ),
                                       const SizedBox(width: 6),
 
-                                      // Bloque de asientos Derecha
                                       for (final col in _colsDerecha) ...[
                                         _asientoExiste(fila, col)
                                             ? _buildWidgetAsiento('$fila$col')
@@ -334,7 +321,6 @@ class _ReservaScreenState extends State<ReservaScreen> {
                   ),
                 ),
 
-                // 4. Panel Inferior de Confirmación
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   decoration: BoxDecoration(

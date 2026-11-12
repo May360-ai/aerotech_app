@@ -4,6 +4,7 @@ import '../config/api_config.dart';
 import '../models/usuario_model.dart';
 import '../models/vuelo_model.dart';
 import '../models/reserva_model.dart';
+import '../models/origen_model.dart';
 
 class ConcurrencyException implements Exception {
   final String message;
@@ -85,6 +86,162 @@ class ApiService {
       return data.map((json) => Vuelo.fromJson(json)).toList();
     } else {
       throw Exception('Error al cargar catálogo de vuelos (${response.statusCode})');
+    }
+  }
+
+  Future<List<Origen>> obtenerOrigenes() async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/origenes');
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((j) => Origen.fromJson(j)).toList();
+    }
+    return [];
+  }
+
+  Future<List<Usuario>> obtenerUsuariosAdmin() async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/usuarios');
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $_jwtToken'});
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((j) => Usuario.fromJson(j)).toList();
+    }
+    throw Exception('Error al cargar usuarios');
+  }
+
+  Future<void> alternarEstadoUsuario(int userId, bool activo) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/usuarios/$userId/estado');
+    final response = await http.patch(
+      url,
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
+      body: jsonEncode({'activo': activo}),
+    );
+    if (response.statusCode != 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(data['mensaje'] ?? 'Error al actualizar usuario');
+    }
+  }
+
+  Future<void> crearOrigen(String nombre, String codigoIata) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/origenes');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
+      body: jsonEncode({'nombre': nombre, 'codigo_iata': codigoIata}),
+    );
+    if (response.statusCode != 201) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(data['mensaje'] ?? 'Error al crear origen');
+    }
+  }
+
+// Orígenes para Admin (incluye activos e inactivos)
+  Future<List<Origen>> obtenerTodosOrigenesAdmin() async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/origenes/todos');
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $_jwtToken'});
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((j) => Origen.fromJson(j)).toList();
+    }
+    return obtenerOrigenes();
+  }
+
+  // Editar Origen
+  Future<void> editarOrigen(int id, String nombre, String codigoIata, bool activo) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/origenes/$id');
+    final response = await http.put(
+      url,
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
+      body: jsonEncode({'nombre': nombre, 'codigo_iata': codigoIata, 'activo': activo}),
+    );
+    if (response.statusCode != 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(data['mensaje'] ?? 'Error al editar origen');
+    }
+  }
+
+  // Soft delete Origen
+  Future<void> softDeleteOrigen(int id) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/origenes/$id');
+    final response = await http.delete(url, headers: {'Authorization': 'Bearer $_jwtToken'});
+    if (response.statusCode != 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(data['mensaje'] ?? 'Error al desactivar origen');
+    }
+  }
+
+  // Crear Vuelo (con soporte fecha_llegada)
+  Future<void> crearVueloAdmin({
+    required String origen,
+    required String destino,
+    required String fecha,
+    required String fechaLlegada,
+    required String horaSalida,
+    required String horaLlegada,
+    required double precio,
+    required int asientosTotales,
+  }) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/vuelos');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
+      body: jsonEncode({
+        'origen': origen,
+        'destino': destino,
+        'fecha': fecha,
+        'fecha_llegada': fechaLlegada,
+        'hora_salida': horaSalida,
+        'hora_llegada': horaLlegada,
+        'precio': precio,
+        'asientos_totales': asientosTotales,
+      }),
+    );
+    if (response.statusCode != 201) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(data['mensaje'] ?? 'Error al crear vuelo');
+    }
+  }
+
+  // Editar Vuelo
+  Future<void> editarVueloAdmin({
+    required int id,
+    required String origen,
+    required String destino,
+    required String fecha,
+    required String fechaLlegada,
+    required String horaSalida,
+    required String horaLlegada,
+    required double precio,
+    required int asientosTotales,
+  }) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/vuelos/$id');
+    final response = await http.put(
+      url,
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
+      body: jsonEncode({
+        'origen': origen,
+        'destino': destino,
+        'fecha': fecha,
+        'fecha_llegada': fechaLlegada,
+        'hora_salida': horaSalida,
+        'hora_llegada': horaLlegada,
+        'precio': precio,
+        'asientos_totales': asientosTotales,
+      }),
+    );
+    if (response.statusCode != 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(data['mensaje'] ?? 'Error al editar vuelo');
+    }
+  }
+
+  // Soft delete Vuelo
+  Future<void> softDeleteVueloAdmin(int vueloId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/admin/vuelos/$vueloId');
+    final response = await http.delete(url, headers: {'Authorization': 'Bearer $_jwtToken'});
+    if (response.statusCode != 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      throw Exception(data['mensaje'] ?? 'Error al desactivar vuelo');
     }
   }
 

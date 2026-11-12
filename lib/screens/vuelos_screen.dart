@@ -3,6 +3,7 @@ import '../models/vuelo_model.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'reserva_screen.dart';
+import 'admin_panel_screen.dart';
 import 'mis_reservas_screen.dart';
 
 class VuelosScreen extends StatefulWidget {
@@ -44,6 +45,17 @@ class _VuelosScreenState extends State<VuelosScreen> {
       appBar: AppBar(
         title: const Text('Vuelos Disponibles'),
         actions: [
+          if (_api.usuarioActual?.isAdmin ?? false)
+          IconButton(
+            icon: const Icon(Icons.admin_panel_settings, color: Colors.amber),
+            tooltip: 'Panel de Administrador',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+              ).then((_) => _cargarVuelos());
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.receipt_long),
             tooltip: 'Mis Reservas',
