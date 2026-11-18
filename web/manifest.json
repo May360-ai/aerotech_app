@@ -1,11 +1,11 @@
 {
-    "name": "aerotech_app",
-    "short_name": "aerotech_app",
+    "name": "AeroTech",
+    "short_name": "AeroTech",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Consulta vuelos y reserva tus asientos.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

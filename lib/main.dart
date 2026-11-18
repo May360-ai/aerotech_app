@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'screens/login_screen.dart';
 
 void main() {
@@ -12,16 +13,13 @@ class AeroTechApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AeroTech - SOA Airlines',
+      title: 'AeroTech',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.indigo,
         brightness: Brightness.light,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
+        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
       ),
       home: const LoginScreen(),
     );

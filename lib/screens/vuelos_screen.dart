@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/vuelo_model.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
@@ -46,16 +47,18 @@ class _VuelosScreenState extends State<VuelosScreen> {
         title: const Text('Vuelos Disponibles'),
         actions: [
           if (_api.usuarioActual?.isAdmin ?? false)
-          IconButton(
-            icon: const Icon(Icons.admin_panel_settings, color: Colors.amber),
-            tooltip: 'Panel de Administrador',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
-              ).then((_) => _cargarVuelos());
-            },
-          ),
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings, color: Colors.amber),
+              tooltip: 'Panel de Administrador',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+                ).then((_) {
+                  if (mounted) _cargarVuelos();
+                });
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.receipt_long),
             tooltip: 'Mis Reservas',
@@ -88,22 +91,28 @@ class _VuelosScreenState extends State<VuelosScreen> {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    child: Text(usuario.nombre.isNotEmpty ? usuario.nombre[0].toUpperCase() : 'U'),
+                    child: Text(
+                      usuario.nombre.isNotEmpty
+                          ? usuario.nombre[0].toUpperCase()
+                          : 'U',
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Pasajero: ${usuario.nombre}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Cédula/RUC: ${usuario.cedulaRuc}', style: const TextStyle(fontSize: 12)),
+                        Text(
+                          'Pasajero: ${usuario.nombre}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Cédula/RUC: ${usuario.cedulaRuc}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
-                  const Chip(
-                    label: Text('JWT Activo', style: TextStyle(fontSize: 11)),
-                    backgroundColor: Colors.white70,
-                  )
                 ],
               ),
             ),
@@ -121,9 +130,19 @@ class _VuelosScreenState extends State<VuelosScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.cloud_off, size: 50, color: Colors.redAccent),
+                          const Icon(
+                            Icons.cloud_off,
+                            size: 50,
+                            color: Colors.redAccent,
+                          ),
                           const SizedBox(height: 12),
-                          Text(snapshot.error.toString(), textAlign: TextAlign.center),
+                          Text(
+                            snapshot.error.toString().replaceFirst(
+                              'Exception: ',
+                              '',
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                           const SizedBox(height: 16),
                           ElevatedButton.icon(
                             onPressed: _cargarVuelos,
@@ -138,7 +157,9 @@ class _VuelosScreenState extends State<VuelosScreen> {
 
                 final vuelos = snapshot.data ?? [];
                 if (vuelos.isEmpty) {
-                  return const Center(child: Text('No hay vuelos disponibles en este momento.'));
+                  return const Center(
+                    child: Text('No hay vuelos disponibles en este momento.'),
+                  );
                 }
 
                 return ListView.builder(
@@ -149,7 +170,9 @@ class _VuelosScreenState extends State<VuelosScreen> {
                     return Card(
                       elevation: 2,
                       margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -159,12 +182,21 @@ class _VuelosScreenState extends State<VuelosScreen> {
                               children: [
                                 Text(
                                   vuelo.origen,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                                const Icon(Icons.flight_takeoff, color: Colors.indigo),
+                                const Icon(
+                                  Icons.flight_takeoff,
+                                  color: Colors.indigo,
+                                ),
                                 Text(
                                   vuelo.destino,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -174,16 +206,26 @@ class _VuelosScreenState extends State<VuelosScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.calendar_month_outlined, size: 16, color: Colors.grey),
+                                    const Icon(
+                                      Icons.calendar_month_outlined,
+                                      size: 16,
+                                      color: Colors.grey,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(vuelo.fecha),
                                   ],
                                 ),
                                 Row(
                                   children: [
-                                    const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                                    const Icon(
+                                      Icons.access_time,
+                                      size: 16,
+                                      color: Colors.grey,
+                                    ),
                                     const SizedBox(width: 4),
-                                    Text('${vuelo.horaSalida} - ${vuelo.horaLlegada}'),
+                                    Text(
+                                      '${vuelo.horaSalida} - ${vuelo.horaLlegada}',
+                                    ),
                                   ],
                                 ),
                               ],
@@ -200,13 +242,17 @@ class _VuelosScreenState extends State<VuelosScreen> {
                                       style: TextStyle(
                                         fontSize: 22,
                                         fontWeight: FontWeight.bold,
-                                        color: Theme.of(context).colorScheme.primary,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
                                       ),
                                     ),
                                     Text(
                                       'Cupos: ${vuelo.asientosDisponibles} / ${vuelo.asientosTotales}',
                                       style: TextStyle(
-                                        color: vuelo.asientosDisponibles > 0 ? Colors.green : Colors.red,
+                                        color: vuelo.asientosDisponibles > 0
+                                            ? Colors.green
+                                            : Colors.red,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -218,10 +264,11 @@ class _VuelosScreenState extends State<VuelosScreen> {
                                           final recargar = await Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) => ReservaScreen(vuelo: vuelo),
+                                              builder: (_) =>
+                                                  ReservaScreen(vuelo: vuelo),
                                             ),
                                           );
-                                          if (recargar == true) {
+                                          if (mounted && recargar == true) {
                                             _cargarVuelos();
                                           }
                                         }

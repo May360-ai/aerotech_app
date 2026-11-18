@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/api_service.dart';
 import 'registro_screen.dart';
 import 'vuelos_screen.dart';
@@ -12,17 +13,24 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _correoCtrl = TextEditingController(text: 'ana@email.com');
-  final _passwordCtrl = TextEditingController(text: '123');
+  final _correoCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   bool _cargando = false;
   bool _ocultarPass = true;
 
+  @override
+  void dispose() {
+    _correoCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _iniciarSesion() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_cargando || !_formKey.currentState!.validate()) return;
 
     setState(() => _cargando = true);
     try {
-      await ApiService().login(_correoCtrl.text.trim(), _passwordCtrl.text.trim());
+      await ApiService().login(_correoCtrl.text.trim(), _passwordCtrl.text);
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -55,10 +63,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.flight_takeoff_rounded, size: 80, color: theme.colorScheme.primary),
+                  Icon(
+                    Icons.flight_takeoff_rounded,
+                    size: 80,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(height: 12),
                   Text(
-                    'AeroTech SOA',
+                    'AeroTech',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -66,9 +78,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   Text(
-                    'Sistema Distribuido de Reservas - UTA',
+                    'Reserva de vuelos',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                   const SizedBox(height: 36),
                   TextFormField(
@@ -79,7 +93,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    validator: (v) => v == null || v.isEmpty ? 'Ingrese su correo' : null,
+                    validator: (v) {
+                      final correo = v?.trim() ?? '';
+                      if (correo.isEmpty) return 'Ingrese su correo';
+                      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                          .hasMatch(correo)) {
+                        return 'Formato de correo no válido';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -90,11 +112,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
-                        icon: Icon(_ocultarPass ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => _ocultarPass = !_ocultarPass),
+                        tooltip: _ocultarPass
+                            ? 'Mostrar contraseña'
+                            : 'Ocultar contraseña',
+                        icon: Icon(
+                          _ocultarPass
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setState(() => _ocultarPass = !_ocultarPass),
                       ),
                     ),
-                    validator: (v) => v == null || v.isEmpty ? 'Ingrese su contraseña' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Ingrese su contraseña' : null,
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
@@ -103,18 +134,27 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.login),
-                    label: Text(_cargando ? 'Autenticando...' : 'Iniciar Sesión'),
-                    style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                    label: Text(
+                      _cargando ? 'Autenticando...' : 'Iniciar Sesión',
+                    ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextButton(
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const RegistroScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const RegistroScreen(),
+                        ),
                       );
                     },
                     child: const Text('¿No tienes cuenta? Regístrate aquí'),

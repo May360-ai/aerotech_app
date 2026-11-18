@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../services/api_service.dart';
 
 class RegistroScreen extends StatefulWidget {
@@ -16,6 +17,15 @@ class _RegistroScreenState extends State<RegistroScreen> {
   final _cedulaCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _cargando = false;
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _correoCtrl.dispose();
+    _cedulaCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
 
   bool _validarCedulaEcuatoriana(String cedula) {
     if (cedula.length != 10) return false;
@@ -35,7 +45,9 @@ class _RegistroScreenState extends State<RegistroScreen> {
     }
 
     final int digitoVerificador = int.tryParse(cedula[9]) ?? -1;
-    final int decenaSuperior = (suma % 10 == 0) ? suma : ((suma ~/ 10) + 1) * 10;
+    final int decenaSuperior = (suma % 10 == 0)
+        ? suma
+        : ((suma ~/ 10) + 1) * 10;
     return (decenaSuperior - suma) == digitoVerificador;
   }
 
@@ -51,7 +63,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
   }
 
   Future<void> _registrar() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_cargando || !_formKey.currentState!.validate()) return;
 
     setState(() => _cargando = true);
     try {
@@ -59,13 +71,15 @@ class _RegistroScreenState extends State<RegistroScreen> {
         nombre: _nombreCtrl.text.trim(),
         correo: _correoCtrl.text.trim(),
         cedulaRuc: _cedulaCtrl.text.trim(),
-        password: _passwordCtrl.text.trim(),
+        password: _passwordCtrl.text,
       );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Usuario registrado con éxito. Ya puedes iniciar sesión.'),
+          content: Text(
+            'Usuario registrado con éxito. Ya puedes iniciar sesión.',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -103,12 +117,13 @@ class _RegistroScreenState extends State<RegistroScreen> {
                     border: OutlineInputBorder(),
                     hintText: 'Ej. Juan Pérez',
                   ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]')),
-                  ],
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'El nombre es obligatorio';
-                    if (v.trim().length < 3) return 'Mínimo 3 caracteres';
+                    if (v == null || v.trim().isEmpty) {
+                      return 'El nombre es obligatorio';
+                    }
+                    if (v.trim().length < 3 || v.trim().length > 100) {
+                      return 'Ingrese entre 3 y 100 caracteres';
+                    }
                     return null;
                   },
                 ),
@@ -126,7 +141,9 @@ class _RegistroScreenState extends State<RegistroScreen> {
                     LengthLimitingTextInputFormatter(13),
                   ],
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'La cédula o RUC es obligatorio';
+                    if (v == null || v.isEmpty) {
+                      return 'La cédula o RUC es obligatorio';
+                    }
                     if (!_validarCedulaORuc(v)) {
                       return 'Cédula o RUC ecuatoriano no válido';
                     }
@@ -143,9 +160,14 @@ class _RegistroScreenState extends State<RegistroScreen> {
                   ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'El correo es obligatorio';
-                    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                    if (!emailRegex.hasMatch(v.trim())) return 'Formato de correo no válido';
+                    if (v == null || v.isEmpty) {
+                      return 'El correo es obligatorio';
+                    }
+                    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+                    if (v.trim().length > 254 ||
+                        !emailRegex.hasMatch(v.trim())) {
+                      return 'Formato de correo no válido';
+                    }
                     return null;
                   },
                 ),
@@ -158,7 +180,12 @@ class _RegistroScreenState extends State<RegistroScreen> {
                     prefixIcon: Icon(Icons.lock_outline),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || v.length < 3) ? 'Mínimo 3 caracteres' : null,
+                  validator: (v) {
+                    if (v == null || v.trim().length < 8 || v.length > 128) {
+                      return 'Ingrese una contraseña de 8 a 128 caracteres';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
@@ -167,11 +194,18 @@ class _RegistroScreenState extends State<RegistroScreen> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.person_add_alt_1),
-                  label: Text(_cargando ? 'Validando datos...' : 'Crear Cuenta'),
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                  label: Text(
+                    _cargando ? 'Validando datos...' : 'Crear Cuenta',
+                  ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
               ],
             ),

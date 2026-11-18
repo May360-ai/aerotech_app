@@ -1,5 +1,7 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
 import '../models/usuario_model.dart';
 import '../models/vuelo_model.dart';
@@ -31,6 +33,16 @@ class ApiService {
     _usuarioActual = null;
   }
 
+  Map<String, dynamic> _leerObjeto(http.Response response) {
+    try {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      if (data is Map<String, dynamic>) return data;
+    } on FormatException {
+      throw Exception('El servicio no pudo responder. Inténtalo de nuevo.');
+    }
+    throw Exception('La respuesta no tiene la información esperada.');
+  }
+
   Future<Usuario> registrarUsuario({
     required String nombre,
     required String correo,
@@ -38,18 +50,25 @@ class ApiService {
     required String password,
   }) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/usuarios/registro');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'nombre': nombre,
-        'correo': correo,
-        'cedula_ruc': cedulaRuc,
-        'password': password,
-      }),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'nombre': nombre,
+            'correo': correo,
+            'cedula_ruc': cedulaRuc,
+            'password': password,
+          }),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
 
-    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    final data = _leerObjeto(response);
     if (response.statusCode == 201 || response.statusCode == 200) {
       return Usuario.fromJson(data['usuario'] ?? data);
     } else {
@@ -59,13 +78,20 @@ class ApiService {
 
   Future<bool> login(String correo, String password) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/auth/login');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'correo': correo, 'password': password}),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'correo': correo, 'password': password}),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
 
-    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    final data = _leerObjeto(response);
     if (response.statusCode == 200 && data['token'] != null) {
       _jwtToken = data['token'];
       if (data['usuario'] != null) {
@@ -79,29 +105,50 @@ class ApiService {
 
   Future<List<Vuelo>> obtenerVuelos() async {
     final url = Uri.parse('${ApiConfig.baseUrl}/vuelos');
-    final response = await http.get(url);
+    final response = await http
+        .get(url)
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((json) => Vuelo.fromJson(json)).toList();
     } else {
-      throw Exception('Error al cargar catálogo de vuelos (${response.statusCode})');
+      throw Exception('No se pudo cargar el catálogo de vuelos');
     }
   }
 
   Future<List<Origen>> obtenerOrigenes() async {
     final url = Uri.parse('${ApiConfig.baseUrl}/origenes');
-    final response = await http.get(url);
+    final response = await http
+        .get(url)
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((j) => Origen.fromJson(j)).toList();
     }
-    return [];
+    throw Exception('No se pudo consultar la información');
   }
 
   Future<List<Usuario>> obtenerUsuariosAdmin() async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/usuarios');
-    final response = await http.get(url, headers: {'Authorization': 'Bearer $_jwtToken'});
+    final response = await http
+        .get(url, headers: {'Authorization': 'Bearer $_jwtToken'})
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((j) => Usuario.fromJson(j)).toList();
@@ -111,66 +158,115 @@ class ApiService {
 
   Future<void> alternarEstadoUsuario(int userId, bool activo) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/usuarios/$userId/estado');
-    final response = await http.patch(
-      url,
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
-      body: jsonEncode({'activo': activo}),
-    );
+    final response = await http
+        .patch(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_jwtToken',
+          },
+          body: jsonEncode({'activo': activo}),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode != 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = _leerObjeto(response);
       throw Exception(data['mensaje'] ?? 'Error al actualizar usuario');
     }
   }
 
   Future<void> crearOrigen(String nombre, String codigoIata) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/origenes');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
-      body: jsonEncode({'nombre': nombre, 'codigo_iata': codigoIata}),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_jwtToken',
+          },
+          body: jsonEncode({'nombre': nombre, 'codigo_iata': codigoIata}),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode != 201) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = _leerObjeto(response);
       throw Exception(data['mensaje'] ?? 'Error al crear origen');
     }
   }
 
-// Orígenes para Admin (incluye activos e inactivos)
   Future<List<Origen>> obtenerTodosOrigenesAdmin() async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/origenes/todos');
-    final response = await http.get(url, headers: {'Authorization': 'Bearer $_jwtToken'});
+    final response = await http
+        .get(url, headers: {'Authorization': 'Bearer $_jwtToken'})
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((j) => Origen.fromJson(j)).toList();
     }
-    return obtenerOrigenes();
+    throw Exception('No se pudo cargar la lista de orígenes');
   }
 
-  // Editar Origen
-  Future<void> editarOrigen(int id, String nombre, String codigoIata, bool activo) async {
+  Future<void> editarOrigen(
+    int id,
+    String nombre,
+    String codigoIata,
+    bool activo,
+  ) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/origenes/$id');
-    final response = await http.put(
-      url,
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
-      body: jsonEncode({'nombre': nombre, 'codigo_iata': codigoIata, 'activo': activo}),
-    );
+    final response = await http
+        .put(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_jwtToken',
+          },
+          body: jsonEncode({
+            'nombre': nombre,
+            'codigo_iata': codigoIata,
+            'activo': activo,
+          }),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode != 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = _leerObjeto(response);
       throw Exception(data['mensaje'] ?? 'Error al editar origen');
     }
   }
 
-  // Soft delete Origen
   Future<void> softDeleteOrigen(int id) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/origenes/$id');
-    final response = await http.delete(url, headers: {'Authorization': 'Bearer $_jwtToken'});
+    final response = await http
+        .delete(url, headers: {'Authorization': 'Bearer $_jwtToken'})
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode != 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = _leerObjeto(response);
       throw Exception(data['mensaje'] ?? 'Error al desactivar origen');
     }
   }
 
-  // Crear Vuelo (con soporte fecha_llegada)
   Future<void> crearVueloAdmin({
     required String origen,
     required String destino,
@@ -182,27 +278,36 @@ class ApiService {
     required int asientosTotales,
   }) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/vuelos');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
-      body: jsonEncode({
-        'origen': origen,
-        'destino': destino,
-        'fecha': fecha,
-        'fecha_llegada': fechaLlegada,
-        'hora_salida': horaSalida,
-        'hora_llegada': horaLlegada,
-        'precio': precio,
-        'asientos_totales': asientosTotales,
-      }),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_jwtToken',
+          },
+          body: jsonEncode({
+            'origen': origen,
+            'destino': destino,
+            'fecha': fecha,
+            'fecha_llegada': fechaLlegada,
+            'hora_salida': horaSalida,
+            'hora_llegada': horaLlegada,
+            'precio': precio,
+            'asientos_totales': asientosTotales,
+          }),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode != 201) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = _leerObjeto(response);
       throw Exception(data['mensaje'] ?? 'Error al crear vuelo');
     }
   }
 
-  // Editar Vuelo
   Future<void> editarVueloAdmin({
     required int id,
     required String origen,
@@ -215,46 +320,73 @@ class ApiService {
     required int asientosTotales,
   }) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/vuelos/$id');
-    final response = await http.put(
-      url,
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'},
-      body: jsonEncode({
-        'origen': origen,
-        'destino': destino,
-        'fecha': fecha,
-        'fecha_llegada': fechaLlegada,
-        'hora_salida': horaSalida,
-        'hora_llegada': horaLlegada,
-        'precio': precio,
-        'asientos_totales': asientosTotales,
-      }),
-    );
+    final response = await http
+        .put(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_jwtToken',
+          },
+          body: jsonEncode({
+            'origen': origen,
+            'destino': destino,
+            'fecha': fecha,
+            'fecha_llegada': fechaLlegada,
+            'hora_salida': horaSalida,
+            'hora_llegada': horaLlegada,
+            'precio': precio,
+            'asientos_totales': asientosTotales,
+          }),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode != 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = _leerObjeto(response);
       throw Exception(data['mensaje'] ?? 'Error al editar vuelo');
     }
   }
 
-  // Soft delete Vuelo
   Future<void> softDeleteVueloAdmin(int vueloId) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/vuelos/$vueloId');
-    final response = await http.delete(url, headers: {'Authorization': 'Bearer $_jwtToken'});
+    final response = await http
+        .delete(url, headers: {'Authorization': 'Bearer $_jwtToken'})
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
     if (response.statusCode != 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final data = _leerObjeto(response);
       throw Exception(data['mensaje'] ?? 'Error al desactivar vuelo');
     }
   }
 
   Future<List<String>> obtenerAsientosOcupados(int vueloId) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}/vuelos/$vueloId/asientos-ocupados');
-    final response = await http.get(url);
+    final url = Uri.parse(
+      '${ApiConfig.baseUrl}/vuelos/$vueloId/asientos-ocupados',
+    );
+    final response = await http
+        .get(url)
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
 
     if (response.statusCode == 200) {
-      final Map<String, dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      final Map<String, dynamic> data = jsonDecode(
+        utf8.decode(response.bodyBytes),
+      );
       final List<dynamic> lista = data['asientos_ocupados'] ?? [];
       return lista.map((e) => e.toString()).toList();
     }
-    return [];
+    throw Exception('No se pudo consultar la información');
   }
 
   Future<Reserva> crearReserva({
@@ -262,23 +394,38 @@ class ApiService {
     required int cantidad,
     List<String> asientos = const [],
   }) async {
-    if (!isAuthenticated) throw Exception('Sesión expirada o no autenticado.');
+    if (!isAuthenticated) throw Exception('Vuelve a iniciar sesión.');
+    if (vueloId < 1 ||
+        cantidad < 1 ||
+        cantidad > 350 ||
+        (asientos.isNotEmpty &&
+            (asientos.length != cantidad ||
+                asientos.toSet().length != cantidad))) {
+      throw Exception('Selecciona una cantidad válida de asientos.');
+    }
 
     final url = Uri.parse('${ApiConfig.baseUrl}/reservas');
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_jwtToken',
-      },
-      body: jsonEncode({
-        'vuelo_id': vueloId,
-        'cantidad': cantidad,
-        'asientos': asientos,
-      }),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_jwtToken',
+          },
+          body: jsonEncode({
+            'vuelo_id': vueloId,
+            'cantidad': cantidad,
+            'asientos': asientos,
+          }),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
 
-    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    final data = _leerObjeto(response);
 
     if (response.statusCode == 201 || response.statusCode == 200) {
       return Reserva.fromJson(data['reserva'] ?? data);
@@ -287,7 +434,7 @@ class ApiService {
         data['mensaje'] ?? 'Uno o más asientos acaban de ser ocupados.',
       );
     } else {
-      throw Exception(data['mensaje'] ?? 'Error al procesar la reserva (${response.statusCode})');
+      throw Exception(data['mensaje'] ?? 'No se pudo procesar la reserva');
     }
   }
 
@@ -295,37 +442,48 @@ class ApiService {
     if (!isAuthenticated) throw Exception('Sesión expirada o no autenticado.');
 
     final url = Uri.parse('${ApiConfig.baseUrl}/reservas/mis-reservas');
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $_jwtToken',
-      },
-    );
+    final response = await http
+        .get(url, headers: {'Authorization': 'Bearer $_jwtToken'})
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((json) => Reserva.fromJson(json)).toList();
     } else {
-      throw Exception('Error al cargar historial de reservas (${response.statusCode})');
+      throw Exception('No se pudo cargar el historial de reservas');
     }
   }
 
   Future<String> obtenerComprobanteXml(int reservaId) async {
     if (!isAuthenticated) throw Exception('No autenticado.');
 
-    final url = Uri.parse('${ApiConfig.baseUrl}/reservas/$reservaId/comprobante-xml');
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $_jwtToken',
-        'Accept': 'application/xml',
-      },
+    final url = Uri.parse(
+      '${ApiConfig.baseUrl}/reservas/$reservaId/comprobante-xml',
     );
+    final response = await http
+        .get(
+          url,
+          headers: {
+            'Authorization': 'Bearer $_jwtToken',
+            'Accept': 'application/xml',
+          },
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
 
     if (response.statusCode == 200) {
       return utf8.decode(response.bodyBytes);
     } else {
-      throw Exception('No se pudo generar el comprobante XML (${response.statusCode})');
+      throw Exception('No se pudo obtener el comprobante');
     }
   }
 }
