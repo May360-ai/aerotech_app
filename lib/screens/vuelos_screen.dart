@@ -72,7 +72,7 @@ class _VuelosScreenState extends State<VuelosScreen> {
       final vuelos = await _api.obtenerVuelos();
       if (!mounted) return;
       setState(() {
-        _todosLosVuelos = vuelos;
+        _todosLosVuelos = vuelos.where((v) => !v.yaPaso).toList();
         _cargando = false;
         _paginaActual = 1;
       });
@@ -213,6 +213,7 @@ class _VuelosScreenState extends State<VuelosScreen> {
   List<Vuelo> _filtrarVuelosIndividuales() {
     final query = _busquedaController.text.trim();
     return _todosLosVuelos.where((v) {
+      if (v.yaPaso) return false;
       if (_origenSeleccionado != null &&
           v.origen.trim().toLowerCase() !=
               _origenSeleccionado!.trim().toLowerCase()) {
@@ -238,6 +239,7 @@ class _VuelosScreenState extends State<VuelosScreen> {
     final pares = <_VueloIdaVuelta>[];
 
     for (final ida in _todosLosVuelos) {
+      if (ida.yaPaso) continue;
       if (_origenSeleccionado != null &&
           ida.origen.trim().toLowerCase() !=
               _origenSeleccionado!.trim().toLowerCase()) {
@@ -255,7 +257,7 @@ class _VuelosScreenState extends State<VuelosScreen> {
       final dtIda = _parseFecha(ida.fecha);
 
       for (final vuelta in _todosLosVuelos) {
-        if (vuelta.id == ida.id) continue;
+        if (vuelta.id == ida.id || vuelta.yaPaso) continue;
         if (vuelta.origen.trim().toLowerCase() !=
                 ida.destino.trim().toLowerCase() ||
             vuelta.destino.trim().toLowerCase() !=
@@ -305,16 +307,23 @@ class _VuelosScreenState extends State<VuelosScreen> {
 
   Future<void> _seleccionarFecha({required bool esVuelta}) async {
     final ahora = DateTime.now();
+    final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+    final primera = esVuelta && _fechaIda != null && _fechaIda!.isAfter(hoy)
+        ? _fechaIda!
+        : hoy;
     final inicial = esVuelta
-        ? (_fechaVuelta ?? _fechaIda ?? ahora)
-        : (_fechaIda ?? ahora);
-    final primera = esVuelta && _fechaIda != null ? _fechaIda! : DateTime(2020);
+        ? (_fechaVuelta ?? _fechaIda ?? hoy)
+        : (_fechaIda ?? hoy);
+    final limiteMaximo = DateTime(2035);
+    final fechaInicial = inicial.isBefore(primera)
+        ? primera
+        : (inicial.isAfter(limiteMaximo) ? limiteMaximo : inicial);
 
     final seleccionada = await showDatePicker(
       context: context,
-      initialDate: inicial.isBefore(primera) ? primera : inicial,
+      initialDate: fechaInicial,
       firstDate: primera,
-      lastDate: DateTime(2035),
+      lastDate: limiteMaximo,
     );
 
     if (seleccionada == null || !mounted) return;
@@ -333,7 +342,21 @@ class _VuelosScreenState extends State<VuelosScreen> {
     _irAlInicioLista();
   }
 
+  void _notificarVueloExpirado() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Este vuelo ya superó su hora de salida.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    _cargarVuelos();
+  }
+
   Future<void> _abrirReserva(Vuelo vuelo) async {
+    if (vuelo.yaPaso) {
+      _notificarVueloExpirado();
+      return;
+    }
     final recargar = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => ReservaScreen(vuelo: vuelo)),
@@ -344,6 +367,10 @@ class _VuelosScreenState extends State<VuelosScreen> {
   }
 
   Future<void> _reservarIdaYVuelta(_VueloIdaVuelta par) async {
+    if (par.ida.yaPaso || par.vuelta.yaPaso) {
+      _notificarVueloExpirado();
+      return;
+    }
     final reservoIda = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => ReservaScreen(vuelo: par.ida)),
@@ -351,6 +378,10 @@ class _VuelosScreenState extends State<VuelosScreen> {
     if (!mounted) return;
 
     if (reservoIda == true) {
+      if (par.vuelta.yaPaso) {
+        _notificarVueloExpirado();
+        return;
+      }
       final reservoVuelta = await Navigator.push<bool>(
         context,
         MaterialPageRoute(builder: (_) => ReservaScreen(vuelo: par.vuelta)),

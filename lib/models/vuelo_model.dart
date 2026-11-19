@@ -32,6 +32,48 @@ class Vuelo {
     return 0.0;
   }
 
+  /// Combina [fecha] y [horaSalida] en un [DateTime] local para validar salidas pasadas.
+  DateTime? get fechaHoraSalida {
+    final fechaLimpia = fecha.trim();
+    if (fechaLimpia.isEmpty) return null;
+
+    DateTime? base = DateTime.tryParse(fechaLimpia);
+    if (base == null) {
+      final partes = fechaLimpia.split(RegExp(r'[-/]'));
+      if (partes.length == 3) {
+        final p0 = int.tryParse(partes[0]);
+        final p1 = int.tryParse(partes[1]);
+        final p2 = int.tryParse(partes[2]);
+        if (p0 != null && p1 != null && p2 != null) {
+          if (partes[0].length == 4) {
+            base = DateTime(p0, p1, p2);
+          } else if (partes[2].length == 4) {
+            base = DateTime(p2, p1, p0);
+          }
+        }
+      }
+    }
+    if (base == null) return null;
+
+    final horaPartes = horaSalida.trim().split(':');
+    final hora = horaPartes.isNotEmpty ? int.tryParse(horaPartes[0]) : null;
+    final minuto = horaPartes.length > 1 ? int.tryParse(horaPartes[1]) : 0;
+    final segundo = horaPartes.length > 2 ? int.tryParse(horaPartes[2]) : 0;
+
+    if (hora == null || minuto == null || segundo == null) {
+      return DateTime(base.year, base.month, base.day, 23, 59, 59);
+    }
+
+    return DateTime(base.year, base.month, base.day, hora, minuto, segundo);
+  }
+
+  /// Indica si la fecha y hora de salida del vuelo ya pasaron respecto al momento actual.
+  bool get yaPaso {
+    final salida = fechaHoraSalida;
+    if (salida == null) return false;
+    return !salida.isAfter(DateTime.now());
+  }
+
   factory Vuelo.fromJson(Map<String, dynamic> json) {
     final fSalida = json['fecha']?.toString() ?? '';
     final fLlegada = json['fecha_llegada']?.toString() ?? fSalida;

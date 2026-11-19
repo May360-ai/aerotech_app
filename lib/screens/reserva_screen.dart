@@ -150,6 +150,16 @@ class _ReservaScreenState extends State<ReservaScreen> {
   }
 
   Future<void> _confirmarReserva() async {
+    if (widget.vuelo.yaPaso) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Este vuelo ya superó su hora de salida y no admite reservas.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      Navigator.pop(context, true);
+      return;
+    }
     if (_procesando || !_ocupacionValida) return;
     if (_cantidadAsientos == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
