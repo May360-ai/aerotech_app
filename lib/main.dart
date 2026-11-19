@@ -1,27 +1,24 @@
 import 'package:flutter/material.dart';
-
-import 'screens/login_screen.dart';
+import 'screens/landing_screen.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const AeroTechApp());
+  runApp(const MyApp());
 }
 
-class AeroTechApp extends StatelessWidget {
-  const AeroTechApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AeroTech',
+      title: 'AeroTech - Reservas SOA',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.indigo,
-        brightness: Brightness.light,
-        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
       ),
-      home: const LoginScreen(),
+      // La Landing Screen es la primera pantalla que verán
+      home: const LandingScreen(),
     );
   }
 }

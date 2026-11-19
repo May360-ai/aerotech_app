@@ -519,38 +519,6 @@ class _VuelosScreenState extends State<VuelosScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            SegmentedButton<_TipoViaje>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment<_TipoViaje>(
-                  value: _TipoViaje.todos,
-                  label: Text('Todos'),
-                  icon: Icon(Icons.flight, size: 18),
-                ),
-                ButtonSegment<_TipoViaje>(
-                  value: _TipoViaje.soloIda,
-                  label: Text('Solo ida'),
-                  icon: Icon(Icons.arrow_forward, size: 18),
-                ),
-                ButtonSegment<_TipoViaje>(
-                  value: _TipoViaje.idaYVuelta,
-                  label: Text('Ida y vuelta'),
-                  icon: Icon(Icons.sync_alt, size: 18),
-                ),
-              ],
-              selected: {_tipoViaje},
-              onSelectionChanged: (seleccion) {
-                setState(() {
-                  _tipoViaje = seleccion.first;
-                  if (_tipoViaje != _TipoViaje.idaYVuelta) {
-                    _fechaVuelta = null;
-                  }
-                  _paginaActual = 1;
-                });
-                _irAlInicioLista();
-              },
-            ),
             if (_filtrosExpandidos) ...[
               const SizedBox(height: 10),
               Row(
