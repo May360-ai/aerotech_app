@@ -5,7 +5,14 @@ import 'registro_screen.dart';
 import 'vuelos_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool returnOnSuccess;
+  final String? mensajeContexto;
+
+  const LoginScreen({
+    super.key,
+    this.returnOnSuccess = false,
+    this.mensajeContexto,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -32,10 +39,14 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await ApiService().login(_correoCtrl.text.trim(), _passwordCtrl.text);
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const VuelosScreen()),
-      );
+      if (widget.returnOnSuccess) {
+        Navigator.pop(context, true);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const VuelosScreen()),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -52,22 +63,71 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final puedeVolver = Navigator.canPop(context);
+
     return Scaffold(
+      appBar: puedeVolver
+          ? AppBar(
+              title: const Text('Iniciar Sesión'),
+              elevation: 0,
+            )
+          : null,
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.flight_takeoff_rounded,
-                    size: 80,
-                    color: theme.colorScheme.primary,
-                  ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (widget.mensajeContexto != null &&
+                        widget.mensajeContexto!.trim().isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer.withValues(
+                            alpha: 0.45,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.3,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              color: theme.colorScheme.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                widget.mensajeContexto!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    Icon(
+                      Icons.flight_takeoff_rounded,
+                      size: 72,
+                      color: theme.colorScheme.primary,
+                    ),
                   const SizedBox(height: 12),
                   Text(
                     'AeroTech',
@@ -163,6 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+        ),
         ),
       ),
     );

@@ -3,7 +3,10 @@ import '../models/origen_model.dart';
 import '../models/vuelo_model.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'mis_reservas_screen.dart';
 import 'registro_screen.dart';
+import 'reserva_screen.dart';
+import 'vuelos_screen.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -48,7 +51,7 @@ class _LandingScreenState extends State<LandingScreen> {
       final vuelos = await _apiService.obtenerVuelos();
       if (!mounted) return;
       setState(() {
-        _vuelos = vuelos;
+        _vuelos = vuelos.where((v) => !v.yaPaso).toList();
         _cargandoVuelos = false;
       });
     } catch (e) {
@@ -84,11 +87,17 @@ class _LandingScreenState extends State<LandingScreen> {
     }
   }
 
-  void _irALogin(BuildContext context) {
-    Navigator.push(
+  Future<void> _irALogin(BuildContext context) async {
+    final autenticado = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(returnOnSuccess: true),
+      ),
     );
+    if (mounted && autenticado == true) {
+      setState(() {});
+      _cargarVuelos();
+    }
   }
 
   void _irARegistro(BuildContext context) {
@@ -96,6 +105,61 @@ class _LandingScreenState extends State<LandingScreen> {
       context,
       MaterialPageRoute(builder: (context) => const RegistroScreen()),
     );
+  }
+
+  Future<void> _irAVuelos(
+    BuildContext context, {
+    String? origenInicial,
+    String? destinoInicial,
+  }) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VuelosScreen(
+          origenInicial: origenInicial,
+          destinoInicial: destinoInicial,
+        ),
+      ),
+    );
+    if (mounted) {
+      setState(() {});
+      _cargarVuelos();
+    }
+  }
+
+  Future<void> _abrirDetalleVuelo(BuildContext context, Vuelo vuelo) async {
+    final recargar = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => ReservaScreen(vuelo: vuelo)),
+    );
+    if (mounted) {
+      setState(() {});
+      if (recargar == true) {
+        _cargarVuelos();
+      }
+    }
+  }
+
+  Future<void> _irAMisReservas(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MisReservasScreen()),
+    );
+    if (mounted) {
+      setState(() {});
+      _cargarVuelos();
+    }
+  }
+
+  void _cerrarSesion() {
+    _apiService.logout();
+    setState(() {});
+  }
+
+  String _tipoCabina(int capacidad) {
+    if (capacidad <= 20) return 'Avioneta Regional (1x2)';
+    if (capacidad <= 70) return 'Jet Regional (2x2)';
+    return 'Comercial Pasajeros (3x3)';
   }
 
   String _formatearHora(String hora) {
@@ -172,7 +236,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _buildNavbar(context, esMovil),
               _buildHero(context, esMovil),
               _buildStatsSection(context, esMovil),
-              _buildFeaturesSection(context, esMovil),
+              _buildCatalogoVuelosSection(context, esMovil),
+              _buildFlujoSection(context, esMovil),
               _buildRutasSection(context, esMovil),
               _buildFooter(context),
             ],
@@ -184,10 +249,12 @@ class _LandingScreenState extends State<LandingScreen> {
 
   // 1. NAVBAR
   Widget _buildNavbar(BuildContext context, bool esMovil) {
+    final autenticado = _apiService.isAuthenticated;
+
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: esMovil ? 20 : 60,
-        vertical: 16,
+        horizontal: esMovil ? 16 : 60,
+        vertical: 14,
       ),
       color: Colors.white,
       child: Row(
@@ -204,14 +271,14 @@ class _LandingScreenState extends State<LandingScreen> {
                 child: const Icon(
                   Icons.flight_takeoff_rounded,
                   color: Colors.white,
-                  size: 24,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               RichText(
                 text: TextSpan(
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 21,
                     fontWeight: FontWeight.bold,
                   ),
                   children: [
@@ -232,26 +299,48 @@ class _LandingScreenState extends State<LandingScreen> {
             children: [
               if (!esMovil)
                 TextButton(
-                  onPressed: () => _irARegistro(context),
-                  child: const Text("Registrarse"),
+                  onPressed: () => _irAVuelos(context),
+                  child: const Text("Vuelos"),
                 ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo.shade900,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              if (autenticado) ...[
+                TextButton.icon(
+                  onPressed: () => _irAMisReservas(context),
+                  icon: const Icon(Icons.receipt_long, size: 18),
+                  label: Text(esMovil ? "Reservas" : "Mis Reservas"),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Cerrar Sesión',
+                  onPressed: _cerrarSesion,
+                  icon: const Icon(Icons.logout_rounded),
+                ),
+              ] else ...[
+                if (!esMovil)
+                  TextButton(
+                    onPressed: () => _irARegistro(context),
+                    child: const Text("Registrarse"),
+                  ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo.shade900,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: esMovil ? 14 : 18,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () => _irALogin(context),
+                  icon: const Icon(Icons.login_rounded, size: 18),
+                  label: const Text(
+                    "Iniciar Sesión",
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-                onPressed: () => _irALogin(context),
-                icon: const Icon(Icons.login_rounded, size: 18),
-                label: const Text(
-                  "Iniciar Sesión",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
+              ],
             ],
           ),
         ],
@@ -272,7 +361,7 @@ class _LandingScreenState extends State<LandingScreen> {
       ),
       padding: EdgeInsets.symmetric(
         horizontal: esMovil ? 24 : 80,
-        vertical: esMovil ? 50 : 90,
+        vertical: esMovil ? 44 : 76,
       ),
       child: Center(
         child: ConstrainedBox(
@@ -281,15 +370,16 @@ class _LandingScreenState extends State<LandingScreen> {
               ? Column(
                   children: [
                     _buildHeroText(context, esMovil),
-                    const SizedBox(height: 36),
-                    _buildHeroCard(),
+                    const SizedBox(height: 32),
+                    _buildHeroCard(context),
                   ],
                 )
               : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(child: _buildHeroText(context, esMovil)),
                     const SizedBox(width: 40),
-                    Expanded(child: _buildHeroCard()),
+                    Expanded(child: _buildHeroCard(context)),
                   ],
                 ),
         ),
@@ -298,32 +388,17 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   Widget _buildHeroText(BuildContext context, bool esMovil) {
+    final autenticado = _apiService.isAuthenticated;
+
     return Column(
       crossAxisAlignment:
           esMovil ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.blueAccent.withOpacity(0.25),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.lightBlueAccent.withOpacity(0.5)),
-          ),
-          child: const Text(
-            "✈️ Vuelos Nacionales al Mejor Precio",
-            style: TextStyle(
-              color: Colors.lightBlueAccent,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
         Text(
           "Viaja por todo el Ecuador en minutos.",
           textAlign: esMovil ? TextAlign.center : TextAlign.start,
-          style: const TextStyle(
-            fontSize: 40,
+          style: TextStyle(
+            fontSize: esMovil ? 32 : 40,
             fontWeight: FontWeight.w900,
             color: Colors.white,
             height: 1.15,
@@ -331,7 +406,7 @@ class _LandingScreenState extends State<LandingScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          "Encuentra tarifas flexibles, selecciona tu asiento favorito y recibe tu pase de abordar digital y comprobante al instante de forma rápida y segura.",
+          "Consulta rutas, horarios y el mapa real de asientos sin necesidad de iniciar sesión. Solo ingresa a tu cuenta cuando confirmes tu reserva.",
           textAlign: esMovil ? TextAlign.center : TextAlign.start,
           style: TextStyle(
             fontSize: 15,
@@ -339,50 +414,78 @@ class _LandingScreenState extends State<LandingScreen> {
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 28),
         Wrap(
           spacing: 14,
           runSpacing: 12,
           alignment: esMovil ? WrapAlignment.center : WrapAlignment.start,
           children: [
-            ElevatedButton(
+            ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.amber.shade600,
                 foregroundColor: Colors.black87,
-                padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
                 elevation: 3,
               ),
-              onPressed: () => _irALogin(context),
-              child: const Text(
-                "Reservar mi Vuelo",
+              onPressed: () => _irAVuelos(context),
+              icon: const Icon(Icons.search_rounded),
+              label: const Text(
+                "Explorar Vuelos",
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
             ),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white70, width: 1.5),
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+            if (autenticado)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white70, width: 1.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => _irAMisReservas(context),
+                icon: const Icon(Icons.receipt_long_rounded),
+                label: const Text(
+                  "Mis Reservas",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+              )
+            else
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white70, width: 1.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => _irARegistro(context),
+                child: const Text(
+                  "Crear Cuenta",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ),
-              onPressed: () => _irARegistro(context),
-              child: const Text(
-                "Crear Cuenta",
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildHeroCard() {
+  Widget _buildHeroCard(BuildContext context) {
     Widget contenido;
 
     if (_cargandoVuelos) {
@@ -434,12 +537,40 @@ class _LandingScreenState extends State<LandingScreen> {
     } else {
       final proximosVuelos = _vuelos.take(3).toList();
       contenido = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Próximas salidas",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              Text(
+                "Toca un vuelo para ver asientos",
+                style: TextStyle(color: Colors.blue.shade200, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           for (int i = 0; i < proximosVuelos.length; i++) ...[
             _buildFlightPreview(proximosVuelos[i]),
             if (i < proximosVuelos.length - 1)
-              const Divider(color: Colors.white24, height: 26),
+              const Divider(color: Colors.white24, height: 22),
           ],
+          const SizedBox(height: 16),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.amberAccent,
+            ),
+            onPressed: () => _irAVuelos(context),
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: Text("Ver los ${_vuelos.length} vuelos disponibles"),
+          ),
         ],
       );
     }
@@ -447,12 +578,12 @@ class _LandingScreenState extends State<LandingScreen> {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
+        color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -464,10 +595,10 @@ class _LandingScreenState extends State<LandingScreen> {
 
   Widget _buildFlightPreview(Vuelo vuelo) {
     return InkWell(
-      onTap: () => _irALogin(context),
+      onTap: () => _abrirDetalleVuelo(context, vuelo),
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -502,7 +633,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Salida: ${_formatearFecha(vuelo.fecha)} • ${_formatearHora(vuelo.horaSalida)}",
+                    "${_formatearFecha(vuelo.fecha)} • ${_formatearHora(vuelo.horaSalida)} • ${vuelo.asientosDisponibles} cupos",
                     style: TextStyle(color: Colors.blue.shade200, fontSize: 12),
                   ),
                 ],
@@ -529,23 +660,25 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  // 3. STATS
+  // 3. STATS (datos reales del catálogo)
   Widget _buildStatsSection(BuildContext context, bool esMovil) {
+    final destinosCount = _origenes.isNotEmpty
+        ? _origenes.length
+        : _vuelos.map((v) => v.destino).toSet().length;
+
     return Container(
+      width: double.infinity,
       color: Colors.grey.shade100,
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       child: Wrap(
         spacing: 40,
-        runSpacing: 20,
+        runSpacing: 18,
         alignment: WrapAlignment.center,
         children: [
-          _buildStat(
-            _vuelos.isNotEmpty ? "${_vuelos.length}" : "+45",
-            _vuelos.isNotEmpty ? "Vuelos Disponibles" : "Vuelos Diarios",
-          ),
-          _buildStat("100%", "Pagos Protegidos"),
-          _buildStat("Al Instante", "Pase de Abordar Digital"),
-          _buildStat("24/7", "Atención al Viajero"),
+          _buildStat("${_vuelos.length}", "Vuelos Disponibles"),
+          _buildStat("$destinosCount", "Destinos Activos"),
+          _buildStat("Sin registro", "Consulta y Mapa de Asientos"),
+          _buildStat("Reembolso", "Disponible antes de la salida"),
         ],
       ),
     );
@@ -557,7 +690,7 @@ class _LandingScreenState extends State<LandingScreen> {
         Text(
           val,
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: FontWeight.w900,
             color: Colors.indigo.shade900,
           ),
@@ -568,47 +701,218 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  // 4. BENEFICIOS PARA EL VIAJERO
-  Widget _buildFeaturesSection(BuildContext context, bool esMovil) {
+  // 4. CATÁLOGO DE VUELOS EN DETALLE (directo desde la landing)
+  Widget _buildCatalogoVuelosSection(BuildContext context, bool esMovil) {
+    final vuelosDestacados = _vuelos.take(6).toList();
+
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: esMovil ? 20 : 60, vertical: 60),
-      child: Column(
-        children: [
-          Text(
-            "¿Por qué volar con nosotros?",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: Colors.indigo.shade900,
+      padding: EdgeInsets.symmetric(
+        horizontal: esMovil ? 20 : 60,
+        vertical: 52,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: Column(
+          children: [
+            Text(
+              "Vuelos Disponibles en Detalle",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo.shade900,
+              ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              "Consulta horarios, tipo de aeronave y cupos disponibles. Abre cualquier vuelo para ver sus asientos sin iniciar sesión.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+            ),
+            const SizedBox(height: 30),
+            if (_cargandoVuelos)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: CircularProgressIndicator(),
+              )
+            else if (_errorVuelos != null)
+              Column(
+                children: [
+                  Text(
+                    _errorVuelos!,
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _cargarVuelos,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text("Reintentar"),
+                  ),
+                ],
+              )
+            else if (vuelosDestacados.isEmpty)
+              Text(
+                "No hay vuelos próximos disponibles en este momento.",
+                style: TextStyle(color: Colors.grey.shade600),
+              )
+            else ...[
+              Wrap(
+                spacing: 18,
+                runSpacing: 18,
+                alignment: WrapAlignment.center,
+                children: vuelosDestacados
+                    .map((v) => _buildTarjetaVueloDetalle(context, v, esMovil))
+                    .toList(),
+              ),
+              const SizedBox(height: 28),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
+                onPressed: () => _irAVuelos(context),
+                icon: const Icon(Icons.tune_rounded),
+                label: Text(
+                  _vuelos.length > 6
+                      ? "Ver todos los vuelos (${_vuelos.length}) y filtros"
+                      : "Abrir buscador completo y filtros",
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTarjetaVueloDetalle(
+    BuildContext context,
+    Vuelo vuelo,
+    bool esMovil,
+  ) {
+    final colorCupos =
+        vuelo.asientosDisponibles > 5 ? Colors.green.shade700 : Colors.orange.shade800;
+
+    return Container(
+      width: esMovil ? double.infinity : 340,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  vuelo.origen,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade900,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(Icons.flight_takeoff, size: 18, color: Colors.indigo),
+              ),
+              Expanded(
+                child: Text(
+                  vuelo.destino,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade900,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 22),
+          Row(
+            children: [
+              const Icon(Icons.calendar_month_outlined, size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  vuelo.fechaLlegada != vuelo.fecha
+                      ? "${_formatearFecha(vuelo.fecha)} a ${_formatearFecha(vuelo.fechaLlegada)}"
+                      : _formatearFecha(vuelo.fecha),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              const Icon(Icons.schedule, size: 16, color: Colors.grey),
+              const SizedBox(width: 4),
+              Text(
+                "${_formatearHora(vuelo.horaSalida)} - ${_formatearHora(vuelo.horaLlegada)}",
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          Text(
-            "Disfruta de una experiencia de reserva ágil, transparente y pensada para tu comodidad",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
-          ),
-          const SizedBox(height: 36),
-          Wrap(
-            spacing: 20,
-            runSpacing: 20,
-            alignment: WrapAlignment.center,
+          Row(
             children: [
-              _buildCard(
-                Icons.airplane_ticket_rounded,
-                "Confirmación Inmediata",
-                "Recibe tu boleto electrónico, itinerario y factura electrónica segundos después de completar tu reserva.",
+              const Icon(Icons.airline_seat_recline_normal, size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _tipoCabina(vuelo.asientosTotales),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
               ),
-              _buildCard(
-                Icons.event_seat_rounded,
-                "Elige tu Asiento Ideal",
-                "Selecciona ventana, pasillo o primera fila con disponibilidad en tiempo real garantizada al momento de pagar.",
+              Text(
+                "${vuelo.asientosDisponibles}/${vuelo.asientosTotales} libres",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: colorCupos,
+                ),
               ),
-              _buildCard(
-                Icons.verified_user_rounded,
-                "Viaja con Tranquilidad",
-                "Tarifas claras sin cargos ocultos, protección total en tus compras y soporte personalizado en cada etapa del viaje.",
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "\$${vuelo.precio.toStringAsFixed(2)}",
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.indigo.shade900,
+                    ),
+                  ),
+                  Text(
+                    "por asiento (+15% IVA)",
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+              FilledButton.icon(
+                onPressed: vuelo.asientosDisponibles > 0
+                    ? () => _abrirDetalleVuelo(context, vuelo)
+                    : null,
+                icon: const Icon(Icons.event_seat, size: 18),
+                label: const Text("Ver asientos"),
               ),
             ],
           ),
@@ -617,57 +921,170 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  Widget _buildCard(IconData icon, String title, String desc) {
+  // 5. FLUJO DEL USUARIO A DETALLE
+  Widget _buildFlujoSection(BuildContext context, bool esMovil) {
+    final pasos = [
+      (
+        '1',
+        Icons.search_rounded,
+        'Explora vuelos y tarifas',
+        'Revisa rutas, horarios, tipo de cabina y precios en tiempo real sin necesidad de iniciar sesión.',
+      ),
+      (
+        '2',
+        Icons.event_seat_rounded,
+        'Elige tus asientos en cabina',
+        'Visualiza los puestos libres y ocupados en el mapa interactivo y revisa el cálculo exacto con IVA.',
+      ),
+      (
+        '3',
+        Icons.verified_user_rounded,
+        'Ingresa solo al confirmar',
+        'Te pedimos iniciar sesión o registrarte únicamente al confirmar. Tus asientos seleccionados se conservan.',
+      ),
+      (
+        '4',
+        Icons.currency_exchange_rounded,
+        'Comprobante y reembolsos',
+        'Accede a tu pasaje desde Mis Reservas y solicita un reembolso antes de la salida si cambias de planes.',
+      ),
+    ];
+
     return Container(
-      width: 310,
-      padding: const EdgeInsets.all(22),
+      width: double.infinity,
+      color: Colors.grey.shade50,
+      padding: EdgeInsets.symmetric(
+        horizontal: esMovil ? 20 : 60,
+        vertical: 52,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: Column(
+          children: [
+            Text(
+              "Cómo funciona tu reserva",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo.shade900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Conoce cada paso del proceso antes de crear tu cuenta",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+            ),
+            const SizedBox(height: 32),
+            Wrap(
+              spacing: 18,
+              runSpacing: 18,
+              alignment: WrapAlignment.center,
+              children: pasos
+                  .map(
+                    (p) => _buildPasoCard(
+                      numero: p.$1,
+                      icon: p.$2,
+                      title: p.$3,
+                      desc: p.$4,
+                      esMovil: esMovil,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasoCard({
+    required String numero,
+    required IconData icon,
+    required String title,
+    required String desc,
+    required bool esMovil,
+  }) {
+    return Container(
+      width: esMovil ? double.infinity : 250,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: Colors.blueAccent, size: 26),
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.indigo.shade900,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  numero,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(icon, color: Colors.blueAccent, size: 22),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 6),
-          Text(desc, style: TextStyle(color: Colors.grey.shade600, height: 1.4, fontSize: 13)),
+          Text(
+            desc,
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              height: 1.45,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // 5. RUTAS DINÁMICAS
+  // 6. RUTAS DINÁMICAS (interactivas: filtran el catálogo)
   Widget _buildRutasSection(BuildContext context, bool esMovil) {
-    // Priorizamos el catálogo de /origenes; si está vacío, extraemos destinos de /vuelos
-    final List<String> destinosMostrar = _origenes.isNotEmpty
-        ? _origenes
-            .map((o) => o.codigoIata.trim().isNotEmpty
-                ? "${o.nombre} (${o.codigoIata})"
-                : o.nombre)
-            .toList()
-        : _vuelos.map((v) => v.destino).toSet().toList();
+    final List<({String etiqueta, String ciudad})> destinosMostrar =
+        _origenes.isNotEmpty
+            ? _origenes
+                .map(
+                  (o) => (
+                    etiqueta: o.codigoIata.trim().isNotEmpty
+                        ? "${o.nombre} (${o.codigoIata})"
+                        : o.nombre,
+                    ciudad: o.nombre,
+                  ),
+                )
+                .toList()
+            : _vuelos
+                .map((v) => v.destino)
+                .toSet()
+                .map((d) => (etiqueta: d, ciudad: d))
+                .toList();
 
     return Container(
       width: double.infinity,
-      color: Colors.blue.shade50.withOpacity(0.4),
-      padding: EdgeInsets.symmetric(horizontal: esMovil ? 20 : 60, vertical: 50),
+      color: Colors.blue.shade50.withValues(alpha: 0.4),
+      padding: EdgeInsets.symmetric(
+        horizontal: esMovil ? 20 : 60,
+        vertical: 48,
+      ),
       child: Column(
         children: [
           Text(
@@ -679,7 +1096,13 @@ class _LandingScreenState extends State<LandingScreen> {
               color: Colors.indigo.shade900,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 6),
+          Text(
+            "Selecciona una ciudad para ver los vuelos hacia ese destino",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          ),
+          const SizedBox(height: 22),
           if (_cargandoDestinos && _cargandoVuelos)
             const CircularProgressIndicator()
           else if (_errorDestinos != null && destinosMostrar.isEmpty)
@@ -704,11 +1127,17 @@ class _LandingScreenState extends State<LandingScreen> {
             )
           else
             Wrap(
-              spacing: 16,
-              runSpacing: 14,
+              spacing: 14,
+              runSpacing: 12,
               alignment: WrapAlignment.center,
               children: destinosMostrar
-                  .map((nombre) => _buildChip(nombre, _obtenerIconoDestino(nombre)))
+                  .map(
+                    (d) => _buildChipDestino(
+                      d.etiqueta,
+                      d.ciudad,
+                      _obtenerIconoDestino(d.ciudad),
+                    ),
+                  )
                   .toList(),
             ),
         ],
@@ -716,18 +1145,19 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  Widget _buildChip(String nombre, IconData icon) {
-    return Chip(
+  Widget _buildChipDestino(String etiqueta, String ciudad, IconData icon) {
+    return ActionChip(
       avatar: Icon(icon, color: Colors.indigo.shade900, size: 18),
-      label: Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+      label: Text(etiqueta, style: const TextStyle(fontWeight: FontWeight.w600)),
       backgroundColor: Colors.white,
       elevation: 1,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      onPressed: () => _irAVuelos(context, destinoInicial: ciudad),
     );
   }
 
-  // 6. FOOTER
+  // 7. FOOTER
   Widget _buildFooter(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -741,7 +1171,7 @@ class _LandingScreenState extends State<LandingScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            "© 2026 AeroAndes. Todos los derechos reservados. • Atención al cliente 24/7",
+            "© 2026 AeroAndes. Todos los derechos reservados.",
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.blue.shade200, fontSize: 12),
           ),

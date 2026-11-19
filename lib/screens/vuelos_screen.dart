@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/vuelo_model.dart';
 import '../services/api_service.dart';
 import 'admin_panel_screen.dart';
+import 'landing_screen.dart';
 import 'login_screen.dart';
 import 'mis_reservas_screen.dart';
 import 'reserva_screen.dart';
@@ -24,7 +25,14 @@ class _VueloIdaVuelta {
 }
 
 class VuelosScreen extends StatefulWidget {
-  const VuelosScreen({super.key});
+  final String? origenInicial;
+  final String? destinoInicial;
+
+  const VuelosScreen({
+    super.key,
+    this.origenInicial,
+    this.destinoInicial,
+  });
 
   @override
   State<VuelosScreen> createState() => _VuelosScreenState();
@@ -52,6 +60,11 @@ class _VuelosScreenState extends State<VuelosScreen> {
   @override
   void initState() {
     super.initState();
+    _origenSeleccionado = widget.origenInicial;
+    _destinoSeleccionado = widget.destinoInicial;
+    if (_origenSeleccionado != null || _destinoSeleccionado != null) {
+      _filtrosExpandidos = true;
+    }
     _cargarVuelos();
   }
 
@@ -87,10 +100,24 @@ class _VuelosScreenState extends State<VuelosScreen> {
 
   void _cerrarSesion() {
     _api.logout();
-    Navigator.pushReplacement(
+    Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => const LandingScreen()),
+      (route) => false,
     );
+  }
+
+  Future<void> _irALogin() async {
+    final autenticado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(returnOnSuccess: true),
+      ),
+    );
+    if (mounted && autenticado == true) {
+      setState(() {});
+      _cargarVuelos();
+    }
   }
 
   DateTime? _parseFecha(String valor) {
@@ -396,12 +423,13 @@ class _VuelosScreenState extends State<VuelosScreen> {
   @override
   Widget build(BuildContext context) {
     final usuario = _api.usuarioActual;
+    final autenticado = _api.isAuthenticated;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Vuelos Disponibles'),
         actions: [
-          if (_api.usuarioActual?.isAdmin ?? false)
+          if (autenticado && (_api.usuarioActual?.isAdmin ?? false))
             IconButton(
               icon: const Icon(Icons.admin_panel_settings, color: Colors.amber),
               tooltip: 'Panel de Administrador',
@@ -414,26 +442,39 @@ class _VuelosScreenState extends State<VuelosScreen> {
                 });
               },
             ),
-          IconButton(
-            icon: const Icon(Icons.receipt_long),
-            tooltip: 'Mis Reservas',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MisReservasScreen()),
-              );
-            },
-          ),
+          if (autenticado)
+            IconButton(
+              icon: const Icon(Icons.receipt_long),
+              tooltip: 'Mis Reservas',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MisReservasScreen()),
+                ).then((_) {
+                  if (mounted) _cargarVuelos();
+                });
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualizar',
             onPressed: _cargarVuelos,
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar Sesión',
-            onPressed: _cerrarSesion,
-          ),
+          if (autenticado)
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Cerrar Sesión',
+              onPressed: _cerrarSesion,
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton.icon(
+                onPressed: _irALogin,
+                icon: const Icon(Icons.login_rounded, size: 18),
+                label: const Text('Ingresar'),
+              ),
+            ),
         ],
       ),
       body: Column(
@@ -466,6 +507,27 @@ class _VuelosScreenState extends State<VuelosScreen> {
                           style: const TextStyle(fontSize: 12),
                         ),
                       ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.explore_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Explora vuelos y elige tus asientos libremente. Solo inicia sesión al confirmar.',
+                      style: TextStyle(fontSize: 12),
                     ),
                   ),
                 ],
@@ -1062,8 +1124,10 @@ class _VuelosScreenState extends State<VuelosScreen> {
                   onPressed: vuelo.asientosDisponibles > 0
                       ? () => _abrirReserva(vuelo)
                       : null,
-                  icon: const Icon(Icons.airplane_ticket),
-                  label: const Text('Reservar'),
+                  icon: const Icon(Icons.event_seat),
+                  label: Text(
+                    _api.isAuthenticated ? 'Reservar' : 'Ver asientos',
+                  ),
                 ),
               ],
             ),

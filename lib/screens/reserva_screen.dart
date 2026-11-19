@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/vuelo_model.dart';
 import '../services/api_service.dart';
 import 'comprobante_xml_screen.dart';
+import 'login_screen.dart';
 
 class ReservaScreen extends StatefulWidget {
   final Vuelo vuelo;
@@ -171,8 +172,26 @@ class _ReservaScreenState extends State<ReservaScreen> {
       return;
     }
 
-    setState(() => _procesando = true);
     final listaAsientos = _asientosSeleccionados.toList()..sort();
+
+    if (!_api.isAuthenticated) {
+      final autenticado = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(
+            returnOnSuccess: true,
+            mensajeContexto:
+                'Inicia sesión para confirmar tu reserva de ${widget.vuelo.origen} a ${widget.vuelo.destino} (Asientos: ${listaAsientos.join(', ')}). Tu selección se conservará.',
+          ),
+        ),
+      );
+      if (!mounted || autenticado != true || !_api.isAuthenticated) {
+        return;
+      }
+      setState(() {});
+    }
+
+    setState(() => _procesando = true);
 
     try {
       final reserva = await _api.crearReserva(
@@ -249,37 +268,101 @@ class _ReservaScreenState extends State<ReservaScreen> {
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 10,
+                    vertical: 12,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '${widget.vuelo.origen} a ${widget.vuelo.destino}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${widget.vuelo.origen} a ${widget.vuelo.destino}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  _nombreTipoAvion,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            _nombreTipoAvion,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
+                          Chip(
+                            label: Text(
+                              'Libres: ${widget.vuelo.asientosDisponibles} / ${widget.vuelo.asientosTotales}',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
+                            backgroundColor: Colors.white,
                           ),
                         ],
                       ),
-                      Chip(
-                        label: Text(
-                          'Libres: ${widget.vuelo.asientosDisponibles} / ${widget.vuelo.asientosTotales}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        backgroundColor: Colors.white,
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 6,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.calendar_month_outlined,
+                                size: 15,
+                                color: Colors.black54,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                widget.vuelo.fechaLlegada != widget.vuelo.fecha
+                                    ? '${widget.vuelo.fecha} -> ${widget.vuelo.fechaLlegada}'
+                                    : widget.vuelo.fecha,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.schedule,
+                                size: 15,
+                                color: Colors.black54,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${widget.vuelo.horaSalida} - ${widget.vuelo.horaLlegada}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.payments_outlined,
+                                size: 15,
+                                color: Colors.black54,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '\$${widget.vuelo.precio.toStringAsFixed(2)} / asiento',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -455,7 +538,7 @@ class _ReservaScreenState extends State<ReservaScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                'Total (+15% IVA)',
+                                'Subtotal \$${subtotal.toStringAsFixed(2)} + IVA \$${iva.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey.shade600,
@@ -473,6 +556,28 @@ class _ReservaScreenState extends State<ReservaScreen> {
                           ),
                         ],
                       ),
+                      if (!_api.isAuthenticated) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.lock_open_rounded,
+                              size: 14,
+                              color: Colors.grey.shade700,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Solo te pediremos iniciar sesión al confirmar. Tus asientos se conservarán.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       FilledButton.icon(
                         onPressed:
@@ -490,11 +595,17 @@ class _ReservaScreenState extends State<ReservaScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.airplane_ticket),
+                            : Icon(
+                                _api.isAuthenticated
+                                    ? Icons.airplane_ticket
+                                    : Icons.login_rounded,
+                              ),
                         label: Text(
                           _procesando
                               ? 'Confirmando reserva…'
-                              : 'Confirmar reserva',
+                              : (_api.isAuthenticated
+                                    ? 'Confirmar reserva'
+                                    : 'Iniciar sesión y confirmar'),
                         ),
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),

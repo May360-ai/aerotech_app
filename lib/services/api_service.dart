@@ -536,4 +536,39 @@ class ApiService {
       throw Exception('No se pudo obtener el comprobante');
     }
   }
+  Future<ReembolsoResultado> solicitarReembolso({
+    required int reservaId,
+    required String motivo,
+  }) async {
+    if (!isAuthenticated) {
+      throw Exception('Inicia sesión para solicitar un reembolso.');
+    }
+
+    final url = Uri.parse('${ApiConfig.baseUrl}/reservas/$reservaId/reembolso');
+    final response = await http
+        .post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_jwtToken',
+          },
+          body: jsonEncode({'motivo': motivo}),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
+
+    final data = _leerObjeto(response);
+    if (response.statusCode == 200) {
+      final reembolsoJson = data['reembolso'] is Map<String, dynamic>
+          ? data['reembolso'] as Map<String, dynamic>
+          : data;
+      return ReembolsoResultado.fromJson(reembolsoJson);
+    } else {
+      throw Exception(data['mensaje'] ?? 'No se pudo procesar el reembolso');
+    }
+  }
 }
