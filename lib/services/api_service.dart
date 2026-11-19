@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../models/usuario_model.dart';
@@ -21,6 +22,9 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
+  static const String _tokenKey = 'jwt_token';
+  static const String _usuarioKey = 'usuario_json';
+
   String? _jwtToken;
   Usuario? _usuarioActual;
 
@@ -28,9 +32,51 @@ class ApiService {
   Usuario? get usuarioActual => _usuarioActual;
   bool get isAuthenticated => _jwtToken != null;
 
-  void logout() {
+  bool _tokenExpirado(String token) {
+    try {
+      final partes = token.split('.');
+      if (partes.length != 3) return false;
+      final payloadStr = utf8.decode(
+        base64Url.decode(base64Url.normalize(partes[1])),
+      );
+      final payload = jsonDecode(payloadStr);
+      if (payload is Map<String, dynamic> && payload['exp'] is num) {
+        final exp = DateTime.fromMillisecondsSinceEpoch(
+          (payload['exp'] as num).toInt() * 1000,
+        );
+        return DateTime.now().isAfter(exp);
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  Future<void> cargarSesion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenKey);
+    final usuarioJson = prefs.getString(_usuarioKey);
+
+    if (token != null && token.isNotEmpty) {
+      if (_tokenExpirado(token)) {
+        await logout();
+        return;
+      }
+      _jwtToken = token;
+      if (usuarioJson != null && usuarioJson.isNotEmpty) {
+        try {
+          _usuarioActual = Usuario.fromJson(jsonDecode(usuarioJson));
+        } catch (_) {
+          _usuarioActual = null;
+        }
+      }
+    }
+  }
+
+  Future<void> logout() async {
     _jwtToken = null;
     _usuarioActual = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_usuarioKey);
   }
 
   Map<String, dynamic> _leerObjeto(http.Response response) {
@@ -94,8 +140,12 @@ class ApiService {
     final data = _leerObjeto(response);
     if (response.statusCode == 200 && data['token'] != null) {
       _jwtToken = data['token'];
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, _jwtToken!);
+
       if (data['usuario'] != null) {
         _usuarioActual = Usuario.fromJson(data['usuario']);
+        await prefs.setString(_usuarioKey, jsonEncode(data['usuario']));
       }
       return true;
     } else {
