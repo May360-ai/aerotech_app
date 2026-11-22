@@ -886,7 +886,47 @@ class _LandingScreenState extends State<LandingScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: vuelo.reembolsable
+                  ? Colors.teal.shade50
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: vuelo.reembolsable
+                    ? Colors.teal.shade200
+                    : Colors.grey.shade300,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  vuelo.reembolsable
+                      ? Icons.currency_exchange_rounded
+                      : Icons.block_rounded,
+                  size: 13,
+                  color: vuelo.reembolsable
+                      ? Colors.teal.shade800
+                      : Colors.grey.shade700,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  vuelo.reembolsable ? 'Reembolsable' : 'No reembolsable',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: vuelo.reembolsable
+                        ? Colors.teal.shade900
+                        : Colors.grey.shade800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

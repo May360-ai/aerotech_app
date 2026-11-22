@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/reserva_model.dart';
 import '../services/api_service.dart';
@@ -253,42 +254,112 @@ class _MisReservasScreenState extends State<MisReservasScreen> {
   }
 
   Future<void> _mostrarComprobanteReembolso(ReembolsoResultado resultado) {
+    final textoResumen = [
+      'COMPROBANTE DE REEMBOLSO - AEROANDES',
+      'Código de reserva: ${resultado.codigoReserva}',
+      'Estado: ${resultado.estado.toUpperCase()}',
+      if (resultado.asientosLiberados != null &&
+          resultado.asientosLiberados!.isNotEmpty)
+        'Asientos liberados: ${resultado.asientosLiberados}',
+      'Motivo: ${resultado.motivo}',
+      if (resultado.fechaReembolso.isNotEmpty)
+        'Fecha de reembolso: ${resultado.fechaReembolso}',
+      'Subtotal: \$${resultado.subtotal.toStringAsFixed(2)}',
+      'IVA (15%): \$${resultado.iva.toStringAsFixed(2)}',
+      'Monto reembolsado: \$${resultado.montoReembolsado.toStringAsFixed(2)}',
+    ].join('\n');
+
     return showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(
-          Icons.check_circle_rounded,
-          color: Colors.green,
-          size: 44,
-        ),
-        title: const Text('Reembolso procesado'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _filaResumen('Código', resultado.codigoReserva),
-            const SizedBox(height: 6),
-            _filaResumen('Estado', resultado.estado.toUpperCase()),
-            const SizedBox(height: 6),
-            _filaResumen(
-              'Monto reembolsado',
-              '\$${resultado.montoReembolsado.toStringAsFixed(2)}',
-              destacado: true,
-            ),
-            if (resultado.asientosLiberados != null &&
-                resultado.asientosLiberados!.isNotEmpty) ...[
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.green.shade700,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Comprobante de Reembolso',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      resultado.codigoReserva,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _filaResumen('Estado', resultado.estado.toUpperCase()),
+              if (resultado.asientosLiberados != null &&
+                  resultado.asientosLiberados!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _filaResumen('Asientos liberados', resultado.asientosLiberados!),
+              ],
+              const SizedBox(height: 8),
+              _filaResumen('Motivo', resultado.motivo),
+              if (resultado.fechaReembolso.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _filaResumen('Fecha', resultado.fechaReembolso),
+              ],
+              const Divider(height: 22),
+              _filaResumen(
+                'Subtotal',
+                '\$${resultado.subtotal.toStringAsFixed(2)}',
+              ),
               const SizedBox(height: 6),
-              _filaResumen('Asientos liberados', resultado.asientosLiberados!),
+              _filaResumen(
+                'IVA (15%)',
+                '\$${resultado.iva.toStringAsFixed(2)}',
+              ),
+              const SizedBox(height: 8),
+              _filaResumen(
+                'Total reembolsado',
+                '\$${resultado.montoReembolsado.toStringAsFixed(2)}',
+                destacado: true,
+              ),
             ],
-            const SizedBox(height: 6),
-            _filaResumen('Motivo', resultado.motivo),
-            if (resultado.fechaReembolso.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              _filaResumen('Fecha', resultado.fechaReembolso),
-            ],
-          ],
+          ),
         ),
         actions: [
+          TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: textoResumen));
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Comprobante de reembolso copiado'),
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('Copiar'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Entendido'),
@@ -545,6 +616,7 @@ class _MisReservasScreenState extends State<MisReservasScreen> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               if (r.puedeSolicitarReembolso)
                                 OutlinedButton.icon(
@@ -560,11 +632,35 @@ class _MisReservasScreenState extends State<MisReservasScreen> {
                                     size: 18,
                                   ),
                                   label: const Text('Reembolso'),
+                                )
+                              else if (!r.reembolsable &&
+                                  !r.estaReembolsada &&
+                                  !r.estaCancelada)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'No reembolsable',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
                                 ),
                               OutlinedButton.icon(
                                 onPressed: () => _verComprobante(r),
-                                icon: const Icon(Icons.code, size: 18),
-                                label: const Text('Ver Pasaje'),
+                                icon: const Icon(Icons.receipt_long, size: 18),
+                                label: const Text('Ver Recibo'),
                               ),
                             ],
                           ),

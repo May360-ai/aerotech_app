@@ -326,6 +326,7 @@ class ApiService {
     required String horaLlegada,
     required double precio,
     required int asientosTotales,
+    bool reembolsable = true,
   }) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/vuelos');
     final response = await http
@@ -344,6 +345,7 @@ class ApiService {
             'hora_llegada': horaLlegada,
             'precio': precio,
             'asientos_totales': asientosTotales,
+            'reembolsable': reembolsable,
           }),
         )
         .timeout(
@@ -368,6 +370,7 @@ class ApiService {
     required String horaLlegada,
     required double precio,
     required int asientosTotales,
+    bool reembolsable = true,
   }) async {
     final url = Uri.parse('${ApiConfig.baseUrl}/admin/vuelos/$id');
     final response = await http
@@ -386,6 +389,7 @@ class ApiService {
             'hora_llegada': horaLlegada,
             'precio': precio,
             'asientos_totales': asientosTotales,
+            'reembolsable': reembolsable,
           }),
         )
         .timeout(
@@ -397,6 +401,36 @@ class ApiService {
     if (response.statusCode != 200) {
       final data = _leerObjeto(response);
       throw Exception(data['mensaje'] ?? 'Error al editar vuelo');
+    }
+  }
+
+  Future<void> alternarReembolsableVueloAdmin(
+    int vueloId,
+    bool reembolsable,
+  ) async {
+    final url = Uri.parse(
+      '${ApiConfig.baseUrl}/admin/vuelos/$vueloId/reembolsable',
+    );
+    final response = await http
+        .patch(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_jwtToken',
+          },
+          body: jsonEncode({'reembolsable': reembolsable}),
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw Exception(
+            'La conexión tardó demasiado. Inténtalo de nuevo.',
+          ),
+        );
+    if (response.statusCode != 200) {
+      final data = _leerObjeto(response);
+      throw Exception(
+        data['mensaje'] ?? 'Error al actualizar política de reembolso',
+      );
     }
   }
 

@@ -997,6 +997,7 @@ class _GestionVuelosTabState extends State<_GestionVuelosTab> {
     final capacidadCtrl = TextEditingController(
       text: vueloEditar?.asientosTotales.toString() ?? "40",
     );
+    bool reembolsable = vueloEditar?.reembolsable ?? true;
 
     if (!mounted) return;
 
@@ -1333,6 +1334,36 @@ class _GestionVuelosTabState extends State<_GestionVuelosTab> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: reembolsable
+                            ? Colors.teal.shade50
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: reembolsable
+                              ? Colors.teal.shade200
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: SwitchListTile(
+                        title: const Text(
+                          'Vuelo reembolsable',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          reembolsable
+                              ? 'Los pasajeros podrán solicitar reembolso antes de la salida.'
+                              : 'Tarifa no reembolsable: no admitirá solicitudes de reembolso.',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        value: reembolsable,
+                        onChanged: guardando
+                            ? null
+                            : (val) => setModalState(() => reembolsable = val),
+                      ),
+                    ),
                     const SizedBox(height: 16),
 
                     if (errorHorario != null)
@@ -1390,6 +1421,7 @@ class _GestionVuelosTabState extends State<_GestionVuelosTab> {
                                     asientosTotales: int.parse(
                                       capacidadCtrl.text,
                                     ),
+                                    reembolsable: reembolsable,
                                   );
                                 } else {
                                   await ApiService().editarVueloAdmin(
@@ -1404,6 +1436,7 @@ class _GestionVuelosTabState extends State<_GestionVuelosTab> {
                                     asientosTotales: int.parse(
                                       capacidadCtrl.text,
                                     ),
+                                    reembolsable: reembolsable,
                                   );
                                 }
                                 if (!mounted || !ctx.mounted) return;
@@ -1586,41 +1619,151 @@ class _GestionVuelosTabState extends State<_GestionVuelosTab> {
                             final v = vuelosPagina[index];
                             final esNocturno = v.fechaLlegada != v.fecha;
                             return Card(
-                              child: ListTile(
-                                leading: const Icon(
-                                  Icons.flight,
-                                  color: Colors.indigo,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
                                 ),
-                                title: Text(
-                                  '${v.origen} a ${v.destino}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  'Salida: ${v.fecha} ${v.horaSalida}\n'
-                                  'Llegada: ${v.fechaLlegada} ${v.horaLlegada} ${esNocturno ? "(+1 día)" : ""}\n'
-                                  '\$${v.precio.toStringAsFixed(2)} | Cupos: ${v.asientosDisponibles}/${v.asientosTotales}',
-                                ),
-                                isThreeLine: true,
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.edit,
-                                        color: Colors.blue,
-                                      ),
-                                      onPressed: () =>
-                                          _modalVuelo(vueloEditar: v),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.flight,
+                                          color: Colors.indigo,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            '${v.origen} a ${v.destino}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            color: Colors.blue,
+                                          ),
+                                          tooltip: 'Editar vuelo',
+                                          onPressed: () =>
+                                              _modalVuelo(vueloEditar: v),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red,
+                                          ),
+                                          tooltip: 'Desactivar vuelo',
+                                          onPressed: () =>
+                                              _confirmarSoftDeleteVuelo(v),
+                                        ),
+                                      ],
                                     ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        color: Colors.red,
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 34),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Salida: ${v.fecha} ${v.horaSalida}\n'
+                                            'Llegada: ${v.fechaLlegada} ${v.horaLlegada} ${esNocturno ? "(+1 día)" : ""}\n'
+                                            '\$${v.precio.toStringAsFixed(2)} | Cupos: ${v.asientosDisponibles}/${v.asientosTotales}',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 4,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: v.reembolsable
+                                                      ? Colors.teal.shade50
+                                                      : Colors.grey.shade200,
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  border: Border.all(
+                                                    color: v.reembolsable
+                                                        ? Colors.teal.shade300
+                                                        : Colors.grey.shade400,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  v.reembolsable
+                                                      ? 'Reembolsable'
+                                                      : 'No reembolsable',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: v.reembolsable
+                                                        ? Colors.teal.shade900
+                                                        : Colors.grey.shade800,
+                                                  ),
+                                                ),
+                                              ),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    'Reembolso',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color:
+                                                          Colors.grey.shade700,
+                                                    ),
+                                                  ),
+                                                  Switch(
+                                                    value: v.reembolsable,
+                                                    onChanged: (nuevo) async {
+                                                      try {
+                                                        await ApiService()
+                                                            .alternarReembolsableVueloAdmin(
+                                                          v.id,
+                                                          nuevo,
+                                                        );
+                                                        if (mounted) _cargar();
+                                                      } catch (e) {
+                                                        if (!context.mounted) {
+                                                          return;
+                                                        }
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                              e
+                                                                  .toString()
+                                                                  .replaceAll(
+                                                                    'Exception: ',
+                                                                    '',
+                                                                  ),
+                                                            ),
+                                                            backgroundColor:
+                                                                Colors.red,
+                                                          ),
+                                                        );
+                                                      }
+                                                    },
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                      onPressed: () =>
-                                          _confirmarSoftDeleteVuelo(v),
                                     ),
                                   ],
                                 ),

@@ -362,6 +362,33 @@ class _ReservaScreenState extends State<ReservaScreen> {
                               ),
                             ],
                           ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                widget.vuelo.reembolsable
+                                    ? Icons.currency_exchange_rounded
+                                    : Icons.block_rounded,
+                                size: 15,
+                                color: widget.vuelo.reembolsable
+                                    ? Colors.teal.shade800
+                                    : Colors.grey.shade700,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                widget.vuelo.reembolsable
+                                    ? 'Tarifa reembolsable'
+                                    : 'No reembolsable',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: widget.vuelo.reembolsable
+                                      ? Colors.teal.shade900
+                                      : Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ],

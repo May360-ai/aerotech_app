@@ -8,9 +8,14 @@ class Reserva {
   final String? origen;
   final String? destino;
   final String? fecha;
+  final String? fechaLlegada;
   final String? horaSalida;
+  final String? horaLlegada;
   final String? asientos;
   final String? fechaReserva;
+  final int? cantidadAsientos;
+  final double? precioUnitario;
+  final bool reembolsable;
 
   Reserva({
     required this.id,
@@ -22,9 +27,14 @@ class Reserva {
     this.origen,
     this.destino,
     this.fecha,
+    this.fechaLlegada,
     this.horaSalida,
+    this.horaLlegada,
     this.asientos,
     this.fechaReserva,
+    this.cantidadAsientos,
+    this.precioUnitario,
+    this.reembolsable = true,
   });
 
   static double _parseMoney(dynamic value) {
@@ -62,10 +72,11 @@ class Reserva {
   }
 
   bool get puedeSolicitarReembolso =>
-      !estaReembolsada && !estaCancelada && !vueloYaPartio;
+      reembolsable && !estaReembolsada && !estaCancelada && !vueloYaPartio;
 
   factory Reserva.fromJson(Map<String, dynamic> json) {
     final rawId = json['id'] ?? json['reserva_id'];
+    final rawCant = json['cantidad_asientos'];
     return Reserva(
       id: rawId is int ? rawId : int.tryParse(rawId.toString()) ?? 0,
       codigoReserva: json['codigo_reserva']?.toString() ?? 'TICK-GEN',
@@ -76,9 +87,22 @@ class Reserva {
       origen: json['origen']?.toString(),
       destino: json['destino']?.toString(),
       fecha: json['fecha']?.toString(),
+      fechaLlegada: json['fecha_llegada']?.toString(),
       horaSalida: json['hora_salida']?.toString(),
+      horaLlegada: json['hora_llegada']?.toString(),
       asientos: json['asientos']?.toString(),
       fechaReserva: json['fecha_reserva']?.toString(),
+      cantidadAsientos: rawCant is int
+          ? rawCant
+          : int.tryParse(rawCant?.toString() ?? ''),
+      precioUnitario: json['precio'] != null
+          ? _parseMoney(json['precio'])
+          : null,
+      reembolsable: json['reembolsable'] == null
+          ? true
+          : (json['reembolsable'] == true ||
+                json['reembolsable'] == 1 ||
+                json['reembolsable'] == 'true'),
     );
   }
 }

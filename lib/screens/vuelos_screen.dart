@@ -1118,6 +1118,36 @@ class _VuelosScreenState extends State<VuelosScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: vuelo.reembolsable
+                            ? Colors.teal.shade50
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: vuelo.reembolsable
+                              ? Colors.teal.shade200
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: Text(
+                        vuelo.reembolsable
+                            ? 'Tarifa reembolsable'
+                            : 'No reembolsable',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: vuelo.reembolsable
+                              ? Colors.teal.shade900
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 FilledButton.icon(

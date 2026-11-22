@@ -10,6 +10,7 @@ class Vuelo {
   final int asientosDisponibles;
   final int asientosTotales;
   final bool activo;
+  final bool reembolsable;
 
   Vuelo({
     required this.id,
@@ -23,6 +24,7 @@ class Vuelo {
     required this.asientosDisponibles,
     this.asientosTotales = 40,
     this.activo = true,
+    this.reembolsable = true,
   });
 
   static double _parseMoney(dynamic value) {
@@ -94,6 +96,11 @@ class Vuelo {
           ? json['asientos_totales']
           : int.tryParse(json['asientos_totales'].toString()) ?? 40,
       activo: json['activo'] == true || json['activo'] == 1 || json['activo'] == 'true',
+      reembolsable: json['reembolsable'] == null
+          ? true
+          : (json['reembolsable'] == true ||
+                json['reembolsable'] == 1 ||
+                json['reembolsable'] == 'true'),
     );
   }
 }
